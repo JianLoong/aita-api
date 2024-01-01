@@ -2,9 +2,9 @@ from os import listdir
 from os.path import isfile, join
 import json
 
-from models.summary import Summary
-
 from sqlmodel import SQLModel, Session, create_engine
+
+from models.summary import Summary
 
 
 sqlite_file_name = "AmItheAsshole.db"
