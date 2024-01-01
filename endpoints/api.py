@@ -123,6 +123,7 @@ class API:
                     .where(Submission.created_utc >= start_utc)
                     .where(Submission.created_utc <= end_utc)
                     .offset(offset)
+                    .limit(limit)
                     .order_by(Submission.created_utc)
                 )
                 results = session.exec(statement).all()
@@ -154,6 +155,7 @@ class API:
                     .where(Submission.created_utc >= start_utc)
                     .where(Submission.created_utc <= end_utc)
                     .offset(offset)
+                    .limit(limit)
                     .order_by(Submission.created_utc)
                 )
                 results = session.exec(statement).all()
@@ -167,6 +169,13 @@ class API:
             if not comment:
                 raise HTTPException(status_code=404, detail="Comment not found")
             return comment
+        
+    def create_summary(self, summary: Summary):
+        with Session(self.engine) as session:
+            session.add(summary)
+            session.commit()
+            session.refresh(summary)
+            return summary
 
     def read_summary(self, id: int):
         with Session(self.engine) as session:
@@ -174,3 +183,16 @@ class API:
             if not summary:
                 raise HTTPException(status_code=404, detail="Summary not found")
             return summary
+        
+    def update_summary(self, id: int, summary: Summary):
+        with Session(self.engine) as session:
+            db_summary = session.get(Summary, id)
+            if not db_summary:
+                raise HTTPException(status_code=404, detail="Submission not found")
+            summary_data = summary.model_dump(exclude_unset=True)
+            for key, value in summary_data.items():
+                setattr(db_summary, key, value)
+            session.add(db_summary)
+            session.commit()
+            session.refresh(db_summary)
+            return db_summary

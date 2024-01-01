@@ -8,8 +8,11 @@ from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nrclex import NRCLex
-
+import sqlalchemy
+from models.summary import Summary
 from endpoints.api import API
+
+api = API()
 
 
 def process(submissions):
@@ -23,14 +26,26 @@ def process(submissions):
             replies = replies + reply
 
         result["id"] = submission["id"]
-        # result["afinn"] = afinn.score(replies)
-        # result["emotion"] = NRCLex(replies).raw_emotion_scores
+        result["afinn"] = afinn.score(replies)
+        result["emotion"] = NRCLex(replies).raw_emotion_scores
         frequencies = word_frequency(replies)
-        # result["word_freq"] = frequencies[0]
-        result["total"] = len(submission["replies"])
+        result["word_freq"] = frequencies[0]
+        result["no_of_replies"] = len(submission["replies"])
         result["counts"] = frequencies[1]
 
-        print(result)
+        summary: Summary = Summary()
+
+        summary.id = result["id"]
+        summary.afinn = result["afinn"]
+        summary.counts = result["counts"]
+        summary.emotion = result["emotion"]
+        summary.word_freq = result["word_freq"]
+
+        try:
+            api.create_summary(summary)
+        except sqlalchemy.exc.IntegrityError:
+            api.update_summary(result["id"], summary)
+
 
 def get_submissions():
     # This function will make indices in for the API to consume with the submission IDs and the file name is the unix timestamp
@@ -43,14 +58,13 @@ def get_submissions():
     start_utc = calendar.timegm(start.timetuple())
     yesterday_utc = calendar.timegm(yesterday.timetuple())
 
-    api = API()
-
-    submissions = api.search_submission(start_utc=yesterday_utc, end_utc=start_utc)
+    submissions = api.search_submission(
+        start_utc=yesterday_utc, end_utc=start_utc, limit=100
+    )
 
     submisions_json = []
 
     for submission in submissions:
-
         comments = api.search_comments(submission_id=submission.submission_id)
         submission_dict = submission.__dict__
 
@@ -66,7 +80,7 @@ def get_submissions():
 
 def word_frequency(text):
     text = text.lower().replace(".", " ")
-    text = re.sub("\W+", " ", text)
+    text = re.sub("\\W+", " ", text)
     text = word_tokenize(text)
     text = remove_stop_words(text)
 
