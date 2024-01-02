@@ -1,7 +1,16 @@
 # Perform sentiment analysis and then create JSON files that will be used for application
 import calendar
+import json
 import re
+import logging
+import os
 from datetime import datetime, timedelta
+
+from sqlmodel import Session, select, create_engine
+
+from models.submission import Submission
+from models.summary import Summary
+
 
 from afinn import Afinn
 from nltk.probability import FreqDist
@@ -9,10 +18,14 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nrclex import NRCLex
 import sqlalchemy
-from models.summary import Summary
+
 from endpoints.api import API
 
 api = API()
+
+
+def __init__(self):
+    self.api = API()
 
 
 def process(submissions):
@@ -48,8 +61,6 @@ def process(submissions):
 
 
 def get_submissions():
-    # This function will make indices in for the API to consume with the submission IDs and the file name is the unix timestamp
-    # This does not need to be date aware
     today = datetime.today()
     start = datetime(today.year, today.month, today.day) + timedelta(1)
     yesterday = start - timedelta(2)
@@ -59,13 +70,16 @@ def get_submissions():
     yesterday_utc = calendar.timegm(yesterday.timetuple())
 
     submissions = api.search_submission(
-        start_utc=yesterday_utc, end_utc=start_utc, limit=100
+        start_utc=yesterday_utc, end_utc=start_utc, limit=50000
     )
 
     submisions_json = []
 
+    logging.info("Total submissions " + str(len(submissions)))
+
     for submission in submissions:
         comments = api.search_comments(submission_id=submission.submission_id)
+        # logging.info("Creating submission for " + submission.title)
         submission_dict = submission.__dict__
 
         replies = []
@@ -128,8 +142,47 @@ def remove_stop_words(word_tokens):
     return filtered_sentence
 
 
+def read_top():
+    indexes = []
+    api = API()
+
+    sqlite_file_name = "AmItheAsshole.db"
+    sqlite_url = f"sqlite:///database//{sqlite_file_name}"
+    engine = create_engine(sqlite_url, echo=False)
+    with Session(engine) as session:
+        statement = select(Submission)
+        results = session.exec(statement)
+        for submission in results:
+            entry = dict()
+            entry["id"] = submission.id
+            entry["scores"] = submission.score
+            entry["created_utc"] = submission.created_utc
+
+            try:
+                summary: Summary = api.read_summary(submission.id)
+
+                entry["nta_count"] = summary.counts["nta_count"]
+                entry["yta_count"] = summary.counts["yta_count"]
+            except Exception:
+                continue
+            indexes.append(entry)
+
+    write_to_file(json.dumps(indexes), "top")
+
+    return indexes
+
+
+def write_to_file(json, file_name):
+    f = open("./endpoints/static/" + str(file_name) + ".json", "w")
+    f.write(json)
+    f.close()
+
+
 if __name__ == "__main__":
+    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
     print("Running analytics")
-    submissions = get_submissions()
+    # submissions = get_submissions()
     # print("Processing submissions")
-    process(submissions)
+    # process(submissions)
+    read_top()

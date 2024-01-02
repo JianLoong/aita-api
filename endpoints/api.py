@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import SQLModel, Session, create_engine, select
+import json
+import logging
+import os
 
+from fastapi import APIRouter, HTTPException, Query
+from sqlmodel import SQLModel, Session, create_engine, select, desc
 
 from models.submission import Submission
 from models.summary import Summary
@@ -17,24 +20,45 @@ class API:
 
         self.engine = create_engine(self.sqlite_url, echo=False)
 
-    def __init__(self):
-        self.configure_database()
-        self.create_db_and_tables()
-        self.router = APIRouter()
+    # Routes for submission
+    def setup_submission_routes(self):
         self.router.add_api_route(
             "/submissions", self.read_submissions, methods=["GET"]
         )
         self.router.add_api_route(
             "/submission/{id}", self.read_submission, methods=["GET"]
         )
+        # self.router.add_api_route(
+        #     "/submission/", self.create_submission, methods=["POST"]
+        # )
+
+        # self.router.add_api_route(
+        #     "/submission/{id}", self.update_submission, methods=["PATCH"]
+        # )
+
         self.router.add_api_route(
-            "/submission/", self.create_submission, methods=["POST"]
+            "/search_submission", self.search_submission, methods=["GET"]
         )
-        self.router.add_api_route("/search_submission", self.search_submission, methods=["GET"])
-        self.router.add_api_route("/search_comment", self.search_comments, methods=["GET"])
+
+    def __init__(self):
+        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
+        self.configure_database()
+        self.create_db_and_tables()
+        self.router = APIRouter()
+
+        # self.router.add_api_route("/indexes", self.read_indexes, methods=["GET"])
+
+        # self.router.add_api_route("/search", self.read_search, methods=["GET"])
+
+        self.router.add_api_route("/top", self.read_top, methods=["GET"])
+
+        self.setup_submission_routes()
+
         self.router.add_api_route(
-            "/submission/{id}", self.update_submission, methods=["PATCH"]
+            "/search_comment", self.search_comments, methods=["GET"]
         )
+
         self.router.add_api_route("/comment/{id}", self.read_comment, methods=["GET"])
         self.router.add_api_route("/summary/{id}", self.read_summary, methods=["GET"])
 
@@ -46,7 +70,7 @@ class API:
                 select(Submission)
                 .offset(offset)
                 .limit(limit)
-                .order_by(Submission.created_utc)
+                .order_by(desc(Submission.created_utc))
             ).all()
             return submissions
 
@@ -72,6 +96,26 @@ class API:
             session.commit()
             session.refresh(comment)
             return comment
+
+    def read_indexes(self):
+        indexes = []
+        with Session(self.engine) as session:
+            statement = select(Submission)
+            results = session.exec(statement)
+            for submission in results:
+                entry = dict()
+                entry["id"] = submission.id
+                entry["scores"] = submission.score
+                entry["created_utc"] = submission.created_utc
+                indexes.append(entry)
+
+        return indexes
+
+    def read_top(self):
+        with open(".//endpoints//static//top.json") as json_file:
+            data = json.load(json_file)
+
+            return data
 
     def update_submission_by_submission_id(
         self, submission_id: str, submission: Submission
@@ -104,8 +148,9 @@ class API:
         submission_id: str = None,
         start_utc: int = None,
         end_utc: int = None,
+        order_by: str = None,
         offset: int = 0,
-        limit: int = Query(default=100, le=500),
+        limit: int = Query(default=50000, le=50000),
     ):
         with Session(self.engine) as session:
             if submission_id is not None:
@@ -119,12 +164,12 @@ class API:
 
             if start_utc is not None:
                 statement = (
-                    select(Submission)
-                    .where(Submission.created_utc >= start_utc)
-                    .where(Submission.created_utc <= end_utc)
+                    select(Comment)
+                    .where(Comment.created_utc >= start_utc)
+                    .where(Comment.created_utc <= end_utc)
+                    .order_by(Comment.score)
                     .offset(offset)
                     .limit(limit)
-                    .order_by(Submission.created_utc)
                 )
                 results = session.exec(statement).all()
                 return results
@@ -137,7 +182,7 @@ class API:
         start_utc: int = None,
         end_utc: int = None,
         offset: int = 0,
-        limit: int = Query(default=100, le=100),
+        limit: int = Query(default=100, le=50000),
     ):
         with Session(self.engine) as session:
             if submission_id is not None:
@@ -154,9 +199,9 @@ class API:
                     select(Submission)
                     .where(Submission.created_utc >= start_utc)
                     .where(Submission.created_utc <= end_utc)
+                    .order_by(desc(Submission.score))
                     .offset(offset)
                     .limit(limit)
-                    .order_by(Submission.created_utc)
                 )
                 results = session.exec(statement).all()
                 return results
@@ -169,7 +214,21 @@ class API:
             if not comment:
                 raise HTTPException(status_code=404, detail="Comment not found")
             return comment
-        
+
+    def read_search(self):
+        indexes = []
+        with Session(self.engine) as session:
+            statement = select(Submission)
+            results = session.exec(statement)
+            for submission in results:
+                entry = dict()
+                entry["id"] = submission.id
+                entry["title"] = submission.title
+                entry["created_utc"] = submission.created_utc
+                indexes.append(entry)
+
+        return indexes
+
     def create_summary(self, summary: Summary):
         with Session(self.engine) as session:
             session.add(summary)
@@ -183,7 +242,7 @@ class API:
             if not summary:
                 raise HTTPException(status_code=404, detail="Summary not found")
             return summary
-        
+
     def update_summary(self, id: int, summary: Summary):
         with Session(self.engine) as session:
             db_summary = session.get(Summary, id)
