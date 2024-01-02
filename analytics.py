@@ -142,7 +142,28 @@ def remove_stop_words(word_tokens):
     return filtered_sentence
 
 
-def read_top():
+def generate_search():
+    indexes = []
+
+    sqlite_file_name = "AmItheAsshole.db"
+    sqlite_url = f"sqlite:///database//{sqlite_file_name}"
+    engine = create_engine(sqlite_url, echo=False)
+
+    with Session(engine) as session:
+        statement = select(Submission)
+        results = session.exec(statement)
+        for submission in results:
+            entry = dict()
+            entry["id"] = submission.id
+            entry["title"] = submission.title
+            entry["created_utc"] = submission.created_utc
+
+            indexes.append(entry)
+
+    write_to_file(json.dumps(indexes), "search")
+
+
+def generate_top():
     indexes = []
     api = API()
 
@@ -160,9 +181,11 @@ def read_top():
 
             try:
                 summary: Summary = api.read_summary(submission.id)
-
-                entry["nta_count"] = summary.counts["nta_count"]
-                entry["yta_count"] = summary.counts["yta_count"]
+                entry["nta"] = summary.counts["nta_count"]
+                entry["yta"] = summary.counts["yta_count"]
+                entry["esh"] = summary.counts["esh_count"]
+                entry["info"] = summary.counts["info_count"]
+                entry["nah"] = summary.counts["nah_count"]
             except Exception:
                 continue
             indexes.append(entry)
@@ -185,4 +208,5 @@ if __name__ == "__main__":
     # submissions = get_submissions()
     # print("Processing submissions")
     # process(submissions)
-    read_top()
+    generate_top()
+    # generate_search()

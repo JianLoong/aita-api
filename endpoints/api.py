@@ -4,6 +4,7 @@ import os
 
 from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import SQLModel, Session, create_engine, select, desc
+from models.breakdown import Breakdown
 
 from models.submission import Submission
 from models.summary import Summary
@@ -49,17 +50,17 @@ class API:
 
         # self.router.add_api_route("/indexes", self.read_indexes, methods=["GET"])
 
-        # self.router.add_api_route("/search", self.read_search, methods=["GET"])
+        self.router.add_api_route("/search", self.read_search, methods=["GET"])
 
         self.router.add_api_route("/top", self.read_top, methods=["GET"])
 
         self.setup_submission_routes()
 
-        self.router.add_api_route(
-            "/search_comment", self.search_comments, methods=["GET"]
-        )
+        # self.router.add_api_route(
+        #     "/search_comment", self.search_comments, methods=["GET"]
+        # )
 
-        self.router.add_api_route("/comment/{id}", self.read_comment, methods=["GET"])
+        # self.router.add_api_route("/comment/{id}", self.read_comment, methods=["GET"])
         self.router.add_api_route("/summary/{id}", self.read_summary, methods=["GET"])
 
     def read_submissions(
@@ -80,6 +81,13 @@ class API:
             if not submission:
                 raise HTTPException(status_code=404, detail="Submission not found")
             return submission
+
+    def create_breakdown(self, breakdown: Breakdown):
+        with Session(self.engine) as session:
+            session.add(breakdown)
+            session.commit()
+            session.refresh(breakdown)
+            return breakdown
 
     def create_submission(self, submission: Submission):
         with Session(self.engine) as session:
@@ -216,18 +224,10 @@ class API:
             return comment
 
     def read_search(self):
-        indexes = []
-        with Session(self.engine) as session:
-            statement = select(Submission)
-            results = session.exec(statement)
-            for submission in results:
-                entry = dict()
-                entry["id"] = submission.id
-                entry["title"] = submission.title
-                entry["created_utc"] = submission.created_utc
-                indexes.append(entry)
+        with open(".//endpoints//static//search.json") as json_file:
+            data = json.load(json_file)
 
-        return indexes
+            return data
 
     def create_summary(self, summary: Summary):
         with Session(self.engine) as session:
