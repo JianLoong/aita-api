@@ -2,13 +2,14 @@ import json
 import logging
 import os
 
+import sqlalchemy
 from fastapi import APIRouter, HTTPException, Query
-from sqlmodel import SQLModel, Session, create_engine, select, desc
-from models.breakdown import Breakdown
+from sqlmodel import Session, SQLModel, create_engine, desc, select
 
+from models.breakdown import Breakdown
+from models.comment import Comment
 from models.submission import Submission
 from models.summary import Summary
-from models.comment import Comment
 
 
 class API:
@@ -53,6 +54,8 @@ class API:
         self.router.add_api_route("/search", self.read_search, methods=["GET"])
 
         self.router.add_api_route("/top", self.read_top, methods=["GET"])
+
+        self.router.add_api_route("/test_top", self.top, methods=["GET"])
 
         self.setup_submission_routes()
 
@@ -137,6 +140,46 @@ class API:
             session.add(result)
             session.commit()
             session.refresh(result)
+
+    # Raw SQL Alchemy Query for this. This will deprecate the use of the top.json static implementation
+    # This query could be rewritten to be more database agnostic.
+    def top(self, year: str, month: str, type: str):
+        with Session(self.engine) as session:
+            statement = """
+                SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,       strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
+                MAX({type}) AS "{type}"
+                FROM submission s
+                INNER JOIN breakdown ON s.id = breakdown.id
+                WHERE sub_year = "{year}"
+                AND sub_month = "{month}"
+                GROUP BY sub_month, sub_year
+                ORDER BY sub_month, sub_year
+            """.format(
+                year=year, month=month, type=type
+            )
+
+            sqlText = sqlalchemy.sql.text(statement)
+
+            resultSet = session.exec(sqlText).all()
+
+            results = []
+
+            for record in resultSet:
+                res = dict()
+                print("\n", record)
+                res["id"] = record[0]
+                res["submission_id"] = record[1]
+                res["title"] = record[2]
+                res["selftext"] = record[3]
+                res["created_utc"] = record[4]
+                res["permalink"] = record[5]
+                res["score"] = record[6]
+                res["month"] = record[7]
+                res["year"] = record[8]
+                res["count"] = record[9]
+                results.append(res)
+
+            return results
 
     def update_submission(self, id: int, submission: Submission):
         with Session(self.engine) as session:

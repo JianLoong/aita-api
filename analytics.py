@@ -1,25 +1,22 @@
 # Perform sentiment analysis and then create JSON files that will be used for application
 import calendar
 import json
-import re
 import logging
 import os
+import re
 from datetime import datetime, timedelta
 
-from sqlmodel import Session, select, create_engine
-
-from models.submission import Submission
-from models.summary import Summary
-
-
+import sqlalchemy
 from afinn import Afinn
+from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
 from nrclex import NRCLex
-import sqlalchemy
+from sqlmodel import Session, create_engine, select
 
 from endpoints.api import API
+from models.submission import Submission
+from models.summary import Summary
 
 api = API()
 

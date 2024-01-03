@@ -47,15 +47,15 @@ for name in onlyfiles:
         nah_count = counts.get("nah_count")
 
         breakdown = Breakdown(
-            id=entry.get(id),
-            nta_count=nta_count,
-            yta_count=yta_count,
-            esh_count=esh_count,
-            info_count=info_count,
-            nah_count=nah_count,
+            id=id,
+            nta=nta_count,
+            yta=yta_count,
+            esh=esh_count,
+            info=info_count,
+            nah=nah_count,
         )
 
-        # session.add(summary)
+        session.add(summary)
         session.add(breakdown)
 
 session.commit()
