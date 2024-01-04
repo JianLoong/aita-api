@@ -8,7 +8,4 @@ version = "0.0.1"
 description = "AITA API"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "sqlmodel",
-    "fastapi"
-]
+dependencies = ["sqlmodel", "fastapi", "praw", "openai"]

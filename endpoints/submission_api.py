@@ -1,6 +1,7 @@
-from enum import Enum, IntEnum
+from enum import Enum
 import logging
 import os
+from random import randrange
 from typing import List
 
 from dotenv import dotenv_values
@@ -66,6 +67,14 @@ class SubmissionAPI:
             description="The top submission for each count of YTA, NTA and etc",
         )
 
+        self.router.add_api_route(
+            "/random",
+            self.random,
+            methods=["GET"],
+            tags=["Submission"],
+            description="Obtains a random submission",
+        )
+
     def read_submission(self, id: int):
         with Session(self.engine) as session:
             submission = session.get(Submission, id)
@@ -77,6 +86,7 @@ class SubmissionAPI:
         id = "id"
         score = "score"
         title = "title"
+        created_utc = "new"
 
     class OrderBy(str, Enum):
         asc = ("asc",)
@@ -120,18 +130,19 @@ class SubmissionAPI:
             case _:
                 sort = Submission.id
 
-        if order_by == "desc":
-            with Session(self.engine) as session:
-                submissions = session.exec(
-                    select(Submission).offset(offset).limit(limit).order_by(desc(sort))
-                ).all()
-                return submissions
-        else:
-            with Session(self.engine) as session:
-                submissions = session.exec(
-                    select(Submission).offset(offset).limit(limit).order_by(asc(sort))
-                ).all()
-                return submissions
+        match order_by:
+            case "desc":
+                order = desc
+            case "asc":
+                order = asc
+            case _:
+                order = desc
+
+        with Session(self.engine) as session:
+            submissions = session.exec(
+                select(Submission).offset(offset).limit(limit).order_by(order(sort))
+            ).all()
+            return submissions
 
     def create_submission(self, submission: Submission):
         with Session(self.engine) as session:
@@ -174,8 +185,26 @@ class SubmissionAPI:
         sort_by: SubmissionSortBy = Query(alias="sortBy", default=SubmissionSortBy.id),
         order_by: OrderBy = Query(alias="orderBy", default=OrderBy.desc),
         offset: int = 0,
-        limit: int = Query(default=100, le=50000),
+        limit: int = Query(default=10, le=100),
     ):
+        match sort_by:
+            case "id":
+                sort = Submission.id
+            case "title":
+                sort = Submission.title
+            case "score":
+                sort = Submission.score
+            case _:
+                sort = Submission.created_utc
+
+        match order_by:
+            case "desc":
+                order = desc
+            case "asc":
+                order = asc
+            case _:
+                order = desc
+
         with Session(self.engine) as session:
             if submission_id is not None:
                 statement = select(Submission).where(
@@ -189,12 +218,13 @@ class SubmissionAPI:
                     select(Submission)
                     .where(Submission.created_utc >= start_utc)
                     .where(Submission.created_utc <= end_utc)
-                    .order_by(desc(Submission.score))
+                    .order_by(order(sort))
                     .offset(offset)
                     .limit(limit)
                 )
                 results = session.exec(statement).all()
                 return results
+            return []
 
     class MonthSelection(str, Enum):
         January = "January"
@@ -209,10 +239,23 @@ class SubmissionAPI:
         October = "October"
         November = "November"
         December = "December"
+        AllTime = "allMonths"
+
+    class CountTypeSelection(str, Enum):
+        yta = "yta"
+        nta = "nta"
+        esh = "esh"
+        info = "info"
+        nah = "nah"
+
+    class YearSelection(str, Enum):
+        year_2022 = "2022"
+        year_2023 = "2023"
+        year_2024 = "2024"
 
     # Raw SQL Alchemy Query for this. This will deprecate the use of the top.json static implementation
     # This query could be rewritten to be more database agnostic.
-    def top(self, year: str, month: MonthSelection, type: str):
+    def top(self, year: YearSelection, month: MonthSelection, type: CountTypeSelection):
         match month:
             case "January":
                 selectedMonth = "01"
@@ -238,23 +281,39 @@ class SubmissionAPI:
                 selectedMonth = "11"
             case "December":
                 selectedMonth = "12"
+            case "allMonths":
+                selectedMonth = "allMonths"
             case _:
                 selectedMonth = "01"
 
         with Session(self.engine) as session:
-            statement = """
-                SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
-                strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
-                MAX({type}) AS {type}
-                FROM submission s
-                INNER JOIN breakdown ON s.id = breakdown.id
-                WHERE sub_year = "{year}"
-                AND sub_month = "{month}"
-                GROUP BY sub_month, sub_year
-                ORDER BY sub_month, sub_year
-            """.format(
-                year=year, month=selectedMonth, type=type
-            )
+            if selectedMonth == "allMonths":
+                statement = """
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
+                    strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
+                    MAX({type}) AS {type}
+                    FROM submission s
+                    INNER JOIN breakdown ON s.id = breakdown.id
+                    WHERE sub_year = "{year}"
+                    GROUP BY sub_year
+                    ORDER BY sub_year
+                """.format(
+                    year=year, type=type
+                )
+            else:
+                statement = """
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
+                    strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
+                    MAX({type}) AS {type}
+                    FROM submission s
+                    INNER JOIN breakdown ON s.id = breakdown.id
+                    WHERE sub_year = "{year}"
+                    AND sub_month = "{month}"
+                    GROUP BY sub_month, sub_year
+                    ORDER BY sub_month, sub_year
+                """.format(
+                    year=year, month=selectedMonth, type=type
+                )
 
             sqlText = sqlalchemy.sql.text(statement)
 
@@ -264,7 +323,6 @@ class SubmissionAPI:
 
             for record in resultSet:
                 res = dict()
-                print("\n", record)
                 res["id"] = record[0]
                 res["submission_id"] = record[1]
                 res["title"] = record[2]
@@ -278,3 +336,13 @@ class SubmissionAPI:
                 results.append(res)
 
             return results
+
+    def random(self):
+        with Session(self.engine) as session:
+            count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
+
+            rand_number = randrange(count)
+
+            submission = self.read_submission(rand_number)
+
+            return submission

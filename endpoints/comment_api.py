@@ -58,7 +58,7 @@ class CommentAPI:
         end_utc: int = None,
         order_by: str = None,
         offset: int = 0,
-        limit: int = Query(default=50000, le=50000),
+        limit: int = Query(default=10, le=100),
     ):
         with Session(self.engine) as session:
             if submission_id is not None:

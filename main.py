@@ -7,7 +7,7 @@ from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
 
-app = FastAPI()
+app = FastAPI(title="AITA API", description="API For AITA Subreddit")
 
 # Configure origins for CORS
 origins = [
