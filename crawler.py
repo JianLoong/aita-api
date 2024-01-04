@@ -2,9 +2,10 @@ import praw
 import sqlalchemy
 import logging
 import os
+from endpoints.comment_api import CommentAPI
+from endpoints.submission_api import SubmissionAPI
 from models.comment import Comment
 from models.submission import Submission
-from endpoints.api import API
 from dotenv import dotenv_values
 
 
@@ -31,7 +32,8 @@ class Crawler:
             user_agent=self.agent,
         )
 
-        api = API()
+        submission_api = SubmissionAPI()
+        comment_api = CommentAPI()
 
         for submission in reddit.subreddit(self.subreddit_name).new(
             limit=self.post_limit
@@ -50,9 +52,11 @@ class Crawler:
                 if submission.selftext == "[removed]":
                     continue
                 logging.info("Creating submission for " + submission.title)
-                api.create_submission(custom_submission)
+                submission_api.create_submission(custom_submission)
             except sqlalchemy.exc.IntegrityError:
-                api.update_submission_by_submission_id(submission.id, custom_submission)
+                submission_api.update_submission_by_submission_id(
+                    submission.id, custom_submission
+                )
 
             submission.comments.replace_more(limit=0)
             comments = submission.comments.list()
@@ -67,7 +71,7 @@ class Crawler:
                 custom_comment.comment_id = comment.id
 
                 try:
-                    api.create_comment(custom_comment)
+                    comment_api.create_comment(custom_comment)
                 except sqlalchemy.exc.IntegrityError:
                     continue
 
