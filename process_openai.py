@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from openai import OpenAI
 
 from dotenv import dotenv_values
+from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from models.openai_analytics import OpenAIAnalysis
@@ -18,7 +19,9 @@ class OpenAIProccessor:
 
         self.client = OpenAI()
 
-        self.sep = SubmissionAPI()
+        engine = DatabaseConfig().get_engine()
+
+        self.submission_api = SubmissionAPI(engine)
 
     def process(self):
         id = 0
@@ -26,15 +29,16 @@ class OpenAIProccessor:
         for i in range(999, 2000):
             id = i
 
-            open_ai_analysis = OpenAIInferenceAPI()
+            engine = DatabaseConfig().get_engine()
+            open_ai_analysis = OpenAIInferenceAPI(engine)
 
             try:
                 open_ai_analysis.read_openai_inference(id)
-
                 logging.info("Analysis exist. Skipping")
+
             except HTTPException:
                 # Doesnt exist so process
-                text = self.sep.read_submission(id)
+                text = self.submission_api.read_submission(id)
                 question = """
                 Explain tones of the following narrative in a list format and actions to be taken: {selftext}
                 """.format(
@@ -48,8 +52,6 @@ class OpenAIProccessor:
                         {"role": "user", "content": question},
                     ],
                 )
-
-                open_ai_analysis = OpenAIInferenceAPI()
 
                 entry = OpenAIAnalysis()
 

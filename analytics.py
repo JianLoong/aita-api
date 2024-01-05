@@ -13,15 +13,17 @@ from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 from nrclex import NRCLex
 from sqlmodel import Session, create_engine, select
-from endpoints.submission_api import SubmissionAPI
 
+from endpoints.database_config import DatabaseConfig
+from endpoints.submission_api import SubmissionAPI
 from models.submission import Submission
 from models.summary import Summary
 
 
 class AnalyticsProcessor:
     def __init__(self):
-        self.api = SubmissionAPI()
+        engine = DatabaseConfig().get_engine()
+        self.api = SubmissionAPI(engine)
 
     def process(self, submissions):
         afinn = Afinn()
@@ -152,36 +154,6 @@ class AnalyticsProcessor:
                 indexes.append(entry)
 
         self.write_to_file(json.dumps(indexes), "search")
-
-    def generate_top(self):
-        indexes = []
-
-        sqlite_file_name = "AmItheAsshole.db"
-        sqlite_url = f"sqlite:///database//{sqlite_file_name}"
-        engine = create_engine(sqlite_url, echo=False)
-        with Session(engine) as session:
-            statement = select(Submission)
-            results = session.exec(statement)
-            for submission in results:
-                entry = dict()
-                entry["id"] = submission.id
-                entry["scores"] = submission.score
-                entry["created_utc"] = submission.created_utc
-
-                try:
-                    summary: Summary = self.api.read_summary(submission.id)
-                    entry["nta"] = summary.counts["nta_count"]
-                    entry["yta"] = summary.counts["yta_count"]
-                    entry["esh"] = summary.counts["esh_count"]
-                    entry["info"] = summary.counts["info_count"]
-                    entry["nah"] = summary.counts["nah_count"]
-                except Exception:
-                    continue
-                indexes.append(entry)
-
-        self.write_to_file(json.dumps(indexes), "top")
-
-        return indexes
 
     def write_to_file(self, json, file_name):
         f = open("./endpoints/static/" + str(file_name) + ".json", "w")

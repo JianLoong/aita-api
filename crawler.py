@@ -3,6 +3,7 @@ import sqlalchemy
 import logging
 import os
 from endpoints.comment_api import CommentAPI
+from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
 from models.comment import Comment
 from models.submission import Submission
@@ -32,10 +33,14 @@ class Crawler:
             user_agent=self.agent,
         )
 
-        submission_api = SubmissionAPI()
-        comment_api = CommentAPI()
+        db_config = DatabaseConfig()
 
-        for submission in reddit.subreddit(self.subreddit_name).new(
+        engine = db_config.get_engine()
+
+        submission_api = SubmissionAPI(engine)
+        comment_api = CommentAPI(engine)
+
+        for submission in reddit.subreddit(self.subreddit_name).hot(
             limit=self.post_limit
         ):
             custom_submission: Submission = Submission()

@@ -1,20 +1,15 @@
-import logging
-import os
-from fastapi import APIRouter, HTTPException, Query
-
+from sqlalchemy import Engine
 from dotenv import dotenv_values
+from fastapi import APIRouter, HTTPException, Query
 from sqlmodel import Session, SQLModel, create_engine, select
+
 from models.comment import Comment
 
 
 class CommentAPI:
-    def __init__(self):
-        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-        self._configure_database()
-        self._create_db_and_tables()
+    def __init__(self, engine: Engine):
+        self.engine = engine
         self.router = APIRouter()
-
         self._setup_comment_routes()
 
     def _create_db_and_tables(self):

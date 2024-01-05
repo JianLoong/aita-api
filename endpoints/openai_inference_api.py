@@ -1,32 +1,18 @@
 import logging
-import os
 from fastapi import APIRouter, HTTPException
 
-from dotenv import dotenv_values
-from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy import Engine
+from sqlmodel import Session
 
 from models.openai_analytics import OpenAIAnalysis
 
 
 class OpenAIInferenceAPI:
-    def __init__(self):
-        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-        self._configure_database()
-        self._create_db_and_tables()
+    def __init__(self, engine: Engine):
+        self.engine = engine
         self.router = APIRouter()
 
         self._setup_openai_analysis_routes()
-
-    def _create_db_and_tables(self):
-        SQLModel.metadata.create_all(self.engine)
-
-    def _configure_database(self):
-        config = dotenv_values(".env")
-        self.sqlite_file_name = config.get("DATABASE_NAME")
-        self.sqlite_url = f"sqlite:///database//{self.sqlite_file_name}"
-
-        self.engine = create_engine(self.sqlite_url, echo=False)
 
     def _setup_openai_analysis_routes(self) -> None:
         self.router.add_api_route(
@@ -45,7 +31,7 @@ class OpenAIInferenceAPI:
             session.refresh(open_ai_analysis)
             return open_ai_analysis
 
-    def read_openai_inference(self, id: int):
+    def read_openai_inference(self, id: int) -> OpenAIAnalysis:
         with Session(self.engine) as session:
             open_ai_inference = session.get(OpenAIAnalysis, id)
             if not open_ai_inference:

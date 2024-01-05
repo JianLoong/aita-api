@@ -17,3 +17,5 @@ INNER JOIN breakdown ON s.id = breakdown.id
 GROUP BY sub_month, sub_year
 ORDER BY sub_month, sub_year;
 ```
+
+uvicorn main:app --reload   

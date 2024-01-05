@@ -1,13 +1,15 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-from endpoints.static_api import StaticAPI
 from endpoints.comment_api import CommentAPI
+
+from fastapi.middleware.cors import CORSMiddleware
+from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
+from endpoints.static_api import StaticAPI
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
 
-app = FastAPI(title="AITA API", description="API For AITA Subreddit")
+app = FastAPI(title="AITA API", description="API For AITA Subreddit", version="2.0.0")
 
 # Configure origins for CORS
 origins = [
@@ -24,11 +26,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+database_config = DatabaseConfig()
+engine = database_config.get_engine()
+
 static_api = StaticAPI()
-submission_api = SubmissionAPI()
-openai_analysis_api = OpenAIInferenceAPI()
-comment_api = CommentAPI()
-summary_api = SummaryAPI()
+submission_api = SubmissionAPI(engine)
+openai_analysis_api = OpenAIInferenceAPI(engine)
+comment_api = CommentAPI(engine)
+summary_api = SummaryAPI(engine)
+
 
 app.include_router(prefix="/api/v2", router=submission_api.router)
 app.include_router(prefix="/api/v2", router=comment_api.router)

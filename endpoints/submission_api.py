@@ -1,35 +1,21 @@
 from enum import Enum
-import logging
-import os
 from random import randrange
 from typing import List
 
-from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import Engine
 import sqlalchemy
-from sqlmodel import Session, SQLModel, asc, create_engine, desc, select
+from sqlmodel import Session, asc, desc, select
 
 from models.submission import Submission
 
 
 class SubmissionAPI:
-    def __init__(self):
-        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-        self._configure_database()
-        self._create_db_and_tables()
+    def __init__(self, engine: Engine):
+        self.engine = engine
         self.router = APIRouter()
 
         self._setup_submission_routes()
-
-    def _create_db_and_tables(self):
-        SQLModel.metadata.create_all(self.engine)
-
-    def _configure_database(self):
-        config = dotenv_values(".env")
-        self.sqlite_file_name = config.get("DATABASE_NAME")
-        self.sqlite_url = f"sqlite:///database//{self.sqlite_file_name}"
-        self.engine = create_engine(self.sqlite_url, echo=False)
 
     # Routes for submission
     def _setup_submission_routes(self) -> None:
@@ -45,18 +31,15 @@ class SubmissionAPI:
             self.read_submission,
             methods=["GET"],
             tags=["Submission"],
+            description="Gets submission from database based on id",
         )
-        # self.router.add_api_route(
-        #     "/submission/", self.create_submission, methods=["POST"]
-        # )
-        # self.router.add_api_route(
-        #     "/submission/{id}", self.update_submission, methods=["PATCH"]
-        # )
+
         self.router.add_api_route(
             "/submisssion/search",
             self.search_submission,
             methods=["GET"],
             tags=["Submission"],
+            status_code=200,
         )
 
         self.router.add_api_route(
@@ -75,29 +58,31 @@ class SubmissionAPI:
             description="Obtains a random submission",
         )
 
-    def read_submission(self, id: int):
+    class _SubmissionSortBy(str, Enum):
+        id = "id"
+        score = "score"
+        title = "title"
+        created_utc = "new"
+
+    class _OrderBy(str, Enum):
+        asc = "asc"
+        desc = "desc"
+
+    def read_submission(self, id: int) -> Submission:
         with Session(self.engine) as session:
             submission = session.get(Submission, id)
             if not submission:
                 raise HTTPException(status_code=404, detail="Submission not found")
             return submission
 
-    class SubmissionSortBy(str, Enum):
-        id = "id"
-        score = "score"
-        title = "title"
-        created_utc = "new"
-
-    class OrderBy(str, Enum):
-        asc = ("asc",)
-        desc = "desc"
-
     def read_submissions(
         self,
         offset: int = 0,
         limit: int = Query(default=10, le=100),
-        sort_by: SubmissionSortBy = Query(alias="sortBy", default=SubmissionSortBy.id),
-        order_by: OrderBy = Query(alias="orderBy", default=OrderBy.desc),
+        sort_by: _SubmissionSortBy = Query(
+            alias="sortBy", default=_SubmissionSortBy.id
+        ),
+        order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
     ) -> List[Submission]:
         """
         Read Submissions
@@ -182,11 +167,13 @@ class SubmissionAPI:
         submission_id: str = None,
         start_utc: str = Query(alias="startUTC", default=None),
         end_utc: str = Query(alias="endUTC", default=None),
-        sort_by: SubmissionSortBy = Query(alias="sortBy", default=SubmissionSortBy.id),
-        order_by: OrderBy = Query(alias="orderBy", default=OrderBy.desc),
+        sort_by: _SubmissionSortBy = Query(
+            alias="sortBy", default=_SubmissionSortBy.id
+        ),
+        order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
         offset: int = 0,
         limit: int = Query(default=10, le=100),
-    ):
+    ) -> List[Submission]:
         match sort_by:
             case "id":
                 sort = Submission.id
@@ -210,7 +197,8 @@ class SubmissionAPI:
                 statement = select(Submission).where(
                     Submission.submission_id == (submission_id)
                 )
-                results = session.exec(statement).one()
+                results = session.exec(statement).all()
+
                 return results
 
             if start_utc and end_utc is not None:
@@ -239,7 +227,7 @@ class SubmissionAPI:
         October = "October"
         November = "November"
         December = "December"
-        AllTime = "allMonths"
+        allMonths = "allMonths"
 
     class CountTypeSelection(str, Enum):
         yta = "yta"
@@ -255,7 +243,9 @@ class SubmissionAPI:
 
     # Raw SQL Alchemy Query for this. This will deprecate the use of the top.json static implementation
     # This query could be rewritten to be more database agnostic.
-    def top(self, year: YearSelection, month: MonthSelection, type: CountTypeSelection):
+    def top(
+        self, year: YearSelection, month: MonthSelection, type: CountTypeSelection
+    ) -> List[Submission]:
         match month:
             case "January":
                 selectedMonth = "01"
@@ -289,20 +279,23 @@ class SubmissionAPI:
         with Session(self.engine) as session:
             if selectedMonth == "allMonths":
                 statement = """
-                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score FROM (
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                     strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
                     MAX({type}) AS {type}
                     FROM submission s
                     INNER JOIN breakdown ON s.id = breakdown.id
                     WHERE sub_year = "{year}"
                     GROUP BY sub_year
-                    ORDER BY sub_year
+                    ORDER BY sub_year) s
                 """.format(
                     year=year, type=type
                 )
             else:
                 statement = """
-                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score FROM (
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
+                    strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
                     strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
                     MAX({type}) AS {type}
                     FROM submission s
@@ -310,7 +303,7 @@ class SubmissionAPI:
                     WHERE sub_year = "{year}"
                     AND sub_month = "{month}"
                     GROUP BY sub_month, sub_year
-                    ORDER BY sub_month, sub_year
+                    ORDER BY sub_month, sub_year) s
                 """.format(
                     year=year, month=selectedMonth, type=type
                 )
@@ -330,14 +323,14 @@ class SubmissionAPI:
                 res["created_utc"] = record[4]
                 res["permalink"] = record[5]
                 res["score"] = record[6]
-                res["month"] = record[7]
-                res["year"] = record[8]
-                res["count"] = record[9]
+                # res["month"] = record[7]
+                # res["year"] = record[8]
+                # res["count"] = record[9]
                 results.append(res)
 
             return results
 
-    def random(self):
+    def random(self) -> Submission:
         with Session(self.engine) as session:
             count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
 
