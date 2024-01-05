@@ -7,18 +7,19 @@ from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
 from models.comment import Comment
 from models.submission import Submission
-from dotenv import dotenv_values
+from dotenv import dotenv_values, find_dotenv, load_dotenv
 
 
 class Crawler:
     def configure_agent(self) -> None:
         self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
 
-        config = dotenv_values(".env")
-        self.client_id = config.get("CLIENT_ID")
-        self.client_secret = config.get("CLIENT_SECRET")
-        self.subreddit_name = config.get("SUBREDDIT_NAME")
-        self.post_limit: int = int(config.get("POST_LIMIT"))
+        # config = dotenv_values(".env")
+        load_dotenv(find_dotenv())
+        self.client_id = os.environ.get("CLIENT_ID")
+        self.client_secret = os.environ.get("CLIENT_SECRET")
+        self.subreddit_name = os.environ.get("SUBREDDIT_NAME")
+        self.post_limit: int = int(os.environ.get("POST_LIMIT"))
 
     def validate_configuration(self) -> bool:
         if self.client_id is None or self.client_secret is None:
@@ -40,6 +41,8 @@ class Crawler:
         submission_api = SubmissionAPI(engine)
         comment_api = CommentAPI(engine)
 
+        print("Inside crawl")
+
         for submission in reddit.subreddit(self.subreddit_name).hot(
             limit=self.post_limit
         ):
@@ -56,7 +59,8 @@ class Crawler:
             try:
                 if submission.selftext == "[removed]":
                     continue
-                logging.info("Creating submission for " + submission.title)
+                # logging.info("Creating submission for " + submission.title)
+                print("Creating submission for " + submission.title)
                 submission_api.create_submission(custom_submission)
             except sqlalchemy.exc.IntegrityError:
                 submission_api.update_submission_by_submission_id(

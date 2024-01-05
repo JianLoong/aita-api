@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from sqlalchemy import Engine
 from sqlmodel import Session
 
@@ -21,3 +21,16 @@ class BreakdownAPI:
             session.commit()
             session.refresh(breakdown)
             return breakdown
+
+    def update_breakdown(self, id: int, summary: Breakdown):
+        with Session(self.engine) as session:
+            db_breakdown = session.get(Breakdown, id)
+            if not db_breakdown:
+                raise HTTPException(status_code=404, detail="Summary not found")
+            summary_data = summary.model_dump(exclude_unset=True)
+            for key, value in summary_data.items():
+                setattr(db_breakdown, key, value)
+            session.add(db_breakdown)
+            session.commit()
+            session.refresh(db_breakdown)
+            return db_breakdown

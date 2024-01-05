@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from datetime import datetime, timedelta
+from dotenv import find_dotenv, load_dotenv
 
 import sqlalchemy
 from afinn import Afinn
@@ -13,9 +14,13 @@ from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 from nrclex import NRCLex
 from sqlmodel import Session, create_engine, select
+from endpoints.breakdown_api import BreakdownAPI
+from endpoints.comment_api import CommentAPI
 
 from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
+from endpoints.summary_api import SummaryAPI
+from models.breakdown import Breakdown
 from models.submission import Submission
 from models.summary import Summary
 
@@ -23,7 +28,10 @@ from models.summary import Summary
 class AnalyticsProcessor:
     def __init__(self):
         engine = DatabaseConfig().get_engine()
-        self.api = SubmissionAPI(engine)
+        self.submission_api = SubmissionAPI(engine)
+        self.summary_api = SummaryAPI(engine)
+        self.breakdown_api = BreakdownAPI(engine)
+        self.comment_api = CommentAPI(engine)
 
     def process(self, submissions):
         afinn = Afinn()
@@ -51,10 +59,27 @@ class AnalyticsProcessor:
             summary.emotion = result["emotion"]
             summary.word_freq = result["word_freq"]
 
+            nta_count = summary.counts.get("nta_count")
+            yta_count = summary.counts.get("yta_count")
+            esh_count = summary.counts.get("esh_count")
+            info_count = summary.counts.get("info_count")
+            nah_count = summary.counts.get("nah_count")
+
+            breakdown = Breakdown(
+                id=result["id"],
+                nta=nta_count,
+                yta=yta_count,
+                esh=esh_count,
+                info=info_count,
+                nah=nah_count,
+            )
+
             try:
-                self.api.create_summary(summary)
+                self.summary_api.create_summary(summary)
+                self.breakdown_api.create_breakdown(breakdown)
             except sqlalchemy.exc.IntegrityError:
-                self.api.update_summary(result["id"], summary)
+                self.summary_api.update_summary(result["id"], summary)
+                self.breakdown_api.create_breakdown(breakdown)
 
     def get_submissions(self):
         today = datetime.today()
@@ -65,7 +90,7 @@ class AnalyticsProcessor:
         start_utc = calendar.timegm(start.timetuple())
         yesterday_utc = calendar.timegm(yesterday.timetuple())
 
-        submissions = self.api.search_submission(
+        submissions = self.submission_api.search_submission(
             start_utc=yesterday_utc, end_utc=start_utc, limit=50000
         )
 
@@ -74,7 +99,9 @@ class AnalyticsProcessor:
         logging.info("Total submissions " + str(len(submissions)))
 
         for submission in submissions:
-            comments = self.api.search_comments(submission_id=submission.submission_id)
+            comments = self.comment_api.search_comments(
+                submission_id=submission.submission_id
+            )
             # logging.info("Creating submission for " + submission.title)
             submission_dict = submission.__dict__
 
@@ -123,7 +150,7 @@ class AnalyticsProcessor:
 
         return [dict(fdist.most_common(30)), counts]
 
-    def remove_stop_words(word_tokens):
+    def remove_stop_words(self, word_tokens):
         stop_words = set(stopwords.words("english"))
 
         filtered_sentence = [w for w in word_tokens if not w.lower() in stop_words]
@@ -138,7 +165,10 @@ class AnalyticsProcessor:
     def generate_search(self):
         indexes = []
 
-        sqlite_file_name = "AmItheAsshole.db"
+        # sqlite_file_name = "AmItheAsshole.db"
+        load_dotenv(find_dotenv())
+        # config = dotenv_values(".env")
+        sqlite_file_name = os.environ.get("DATABASE_NAME")
         sqlite_url = f"sqlite:///database//{sqlite_file_name}"
         engine = create_engine(sqlite_url, echo=False)
 
@@ -165,8 +195,9 @@ if __name__ == "__main__":
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
     print("Running analytics")
-    # submissions = get_submissions()
+
+    ap = AnalyticsProcessor()
     # print("Processing submissions")
-    # process(submissions)
-    # generate_top()
-    # generate_search()
+    submissions = ap.get_submissions()
+    ap.process(submissions)
+    ap.generate_search()
