@@ -7,17 +7,17 @@ from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
 from models.comment import Comment
 from models.submission import Submission
-from dotenv import dotenv_values, find_dotenv, load_dotenv
+from dotenv import find_dotenv, load_dotenv
 
 
 class Crawler:
     def configure_agent(self) -> None:
         self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
 
-        # config = dotenv_values(".env")
         load_dotenv(find_dotenv())
-        self.client_id = os.environ.get("CLIENT_ID")
-        self.client_secret = os.environ.get("CLIENT_SECRET")
+
+        self.client_id = os.environ.get("REDDIT_CLIENT_ID")
+        self.client_secret = os.environ.get("REDDIT_CLIENT_SECRET")
         self.subreddit_name = os.environ.get("SUBREDDIT_NAME")
         self.post_limit: int = int(os.environ.get("POST_LIMIT"))
 
@@ -40,8 +40,6 @@ class Crawler:
 
         submission_api = SubmissionAPI(engine)
         comment_api = CommentAPI(engine)
-
-        print("Inside crawl")
 
         for submission in reddit.subreddit(self.subreddit_name).hot(
             limit=self.post_limit
@@ -86,8 +84,6 @@ class Crawler:
 
 
 if __name__ == "__main__":
-    print("Running crawler")
-
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
     crawler = Crawler()

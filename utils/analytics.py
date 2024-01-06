@@ -40,6 +40,8 @@ class AnalyticsProcessor:
             result = {"id": 0, "afinn": 0, "emotion": 0, "word_freq": 0, "counts": 0}
 
             replies = ""
+
+            print("Processsing submission : " + submission["title"])
             for reply in submission["replies"]:
                 replies = replies + reply
 
@@ -76,10 +78,14 @@ class AnalyticsProcessor:
 
             try:
                 self.summary_api.create_summary(summary)
-                self.breakdown_api.create_breakdown(breakdown)
             except sqlalchemy.exc.IntegrityError:
                 self.summary_api.update_summary(result["id"], summary)
+
+            try:
                 self.breakdown_api.create_breakdown(breakdown)
+            except sqlalchemy.exc.IntegrityError:
+                self.breakdown_api.update_breakdown(breakdown.id, breakdown)
+                continue
 
     def get_submissions(self):
         today = datetime.today()
@@ -91,10 +97,10 @@ class AnalyticsProcessor:
         yesterday_utc = calendar.timegm(yesterday.timetuple())
 
         submissions = self.submission_api.search_submission(
-            start_utc=yesterday_utc, end_utc=start_utc, limit=50000
+            start_utc=yesterday_utc, end_utc=start_utc, limit=100
         )
 
-        submisions_json = []
+        submissions_json = []
 
         logging.info("Total submissions " + str(len(submissions)))
 
@@ -110,9 +116,9 @@ class AnalyticsProcessor:
                 replies.append(reply.message)
             submission_dict["replies"] = replies
 
-            submisions_json.append(submission_dict)
+            submissions_json.append(submission_dict)
 
-        return submisions_json
+        return submissions_json
 
     def word_frequency(self, text):
         text = text.lower().replace(".", " ")

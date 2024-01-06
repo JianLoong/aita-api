@@ -28,7 +28,7 @@ class CommentAPI:
         )
 
         self.router.add_api_route(
-            "/comment/search", self.search_comments, methods=["GET"], tags=["Comment"]
+            "/searchComment", self.search_comments, methods=["GET"], tags=["Comment"]
         )
 
     def read_comment(self, id: int):
@@ -49,11 +49,6 @@ class CommentAPI:
     def search_comments(
         self,
         submission_id: str = None,
-        start_utc: int = None,
-        end_utc: int = None,
-        order_by: str = None,
-        offset: int = 0,
-        limit: int = Query(default=10, le=100),
     ):
         with Session(self.engine) as session:
             if submission_id is not None:
@@ -64,17 +59,5 @@ class CommentAPI:
                 return results
             # 1664646465
             # 1701692714000
-
-            if start_utc is not None:
-                statement = (
-                    select(Comment)
-                    .where(Comment.created_utc >= start_utc)
-                    .where(Comment.created_utc <= end_utc)
-                    .order_by(Comment.score)
-                    .offset(offset)
-                    .limit(limit)
-                )
-                results = session.exec(statement).all()
-                return results
 
             return []

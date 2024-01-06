@@ -1,44 +1,40 @@
 import logging
 import os
 from fastapi import HTTPException
-from openai import OpenAI
 
-from dotenv import dotenv_values
+from dotenv import find_dotenv, load_dotenv
+from openai import OpenAI
 from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from models.openai_analytics import OpenAIAnalysis
+from utils.analytics import AnalyticsProcessor
 
 
 class OpenAIProccessor:
     def __init__(self):
-        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+        print("Creating")
+        load_dotenv(find_dotenv())
+        self.api_key = os.environ.get("OPENAI_API_KEY")
 
-        config = dotenv_values(".env")
-        self.api_key = config.get("OPENAI_API_KEY")
-
-        self.client = OpenAI()
-
-        engine = DatabaseConfig().get_engine()
+        database_config = DatabaseConfig()
+        engine = database_config.get_engine()
 
         self.submission_api = SubmissionAPI(engine)
 
-    def process(self):
-        id = 0
+        self.open_ai_analysis = OpenAIInferenceAPI(engine)
 
-        for i in range(999, 2000):
-            id = i
+        self.client = OpenAI()
 
-            engine = DatabaseConfig().get_engine()
-            open_ai_analysis = OpenAIInferenceAPI(engine)
-
+    def process(self, submissions):
+        for sub in submissions:
             try:
-                open_ai_analysis.read_openai_inference(id)
+                self.open_ai_analysis.read_openai_inference(sub["id"])
                 logging.info("Analysis exist. Skipping")
 
             except HTTPException:
                 # Doesnt exist so process
-                text = self.submission_api.read_submission(id)
+                text = self.submission_api.read_submission(sub["id"])
                 question = """
                 Explain tones of the following narrative in a list format and actions to be taken: {selftext}
                 """.format(
@@ -55,17 +51,21 @@ class OpenAIProccessor:
 
                 entry = OpenAIAnalysis()
 
-                entry.id = id
+                entry.id = sub["id"]
                 entry.text = response.choices[0].message.content
 
-                open_ai_analysis.create_opeai_analysis(entry)
-
-
-def main():
-    oap = OpenAIProccessor()
-
-    oap.process()
+                self.open_ai_analysis.create_opeai_analysis(entry)
 
 
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
+    ap = AnalyticsProcessor()
+    print("Processing submissions")
+    submissions = ap.get_submissions()
+
+    print("Running analytics")
+
+    ap = OpenAIProccessor()
+    # print("Processing submissions")
+    ap.process(submissions)

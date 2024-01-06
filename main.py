@@ -1,6 +1,6 @@
 from fastapi import FastAPI
-from analytics import AnalyticsProcessor
-from crawler import Crawler
+from utils.analytics import AnalyticsProcessor
+from utils.crawler import Crawler
 
 from endpoints.comment_api import CommentAPI
 
@@ -12,6 +12,8 @@ from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
 
 from fastapi_utilities import repeat_every
+
+from utils.process_openai import OpenAIProccessor
 
 
 app = FastAPI(
@@ -55,21 +57,26 @@ app.include_router(prefix="/api/v2", router=static_api.router)
 
 @repeat_every(seconds=60 * 60)  # 1 hour
 def remove_expired_tokens_task() -> None:
-    print("Crawling")
-    crawler = Crawler()
+    # print("Crawling")
+    # crawler = Crawler()
 
-    crawler.configure_agent()
+    # crawler.configure_agent()
 
-    if crawler.validate_configuration is False:
-        raise Exception("Invalid configuration.")
+    # if crawler.validate_configuration is False:
+    #     print("Invalid configuration")
+    #     raise Exception("Invalid configuration.")
 
-    crawler.crawl()
+    # crawler.crawl()
 
     ap = AnalyticsProcessor()
     print("Processing submissions")
     submissions = ap.get_submissions()
-    ap.process(submissions)
-    ap.generate_search()
+    # ap.process(submissions)
+    # ap.generate_search()
+
+    oap = OpenAIProccessor()
+
+    oap.process(submissions)
 
 
 app.add_event_handler("startup", remove_expired_tokens_task)
