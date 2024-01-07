@@ -2,9 +2,10 @@ from enum import Enum
 from random import randrange
 from typing import List
 
-from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import Engine
 import sqlalchemy
+from fastapi import APIRouter, HTTPException, Query
+from fuzzywuzzy import process
+from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
 from models.submission import Submission
@@ -35,7 +36,7 @@ class SubmissionAPI:
         )
 
         self.router.add_api_route(
-            "/submisssion/search",
+            "/submisssions/search",
             self.search_submission,
             methods=["GET"],
             tags=["Submission"],
@@ -43,21 +44,30 @@ class SubmissionAPI:
         )
 
         self.router.add_api_route(
-            "/top",
-            self.top,
+            "/submissions/top",
+            self.top_submission,
             methods=["GET"],
             tags=["Submission"],
             description="The top submission for each count of YTA, NTA and etc",
         )
 
         self.router.add_api_route(
-            "/random",
-            self.random,
+            "/submissions/fuzzy-search",
+            self.fuzzy_search,
+            methods=["GET"],
+            tags=["Submission"],
+            description="Performs fuzzy seach on Id and Title",
+        )
+
+        self.router.add_api_route(
+            "/submissions/random",
+            self.random_submission,
             methods=["GET"],
             tags=["Submission"],
             description="Obtains a random submission",
         )
 
+    # Enums for search submissions
     class _SubmissionSortBy(str, Enum):
         id = "id"
         score = "score"
@@ -85,24 +95,15 @@ class SubmissionAPI:
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
     ) -> List[Submission]:
         """
-        Read Submissions
-        ----------------
-
         Reads the submissions in the database.
 
-        Parameters:
-        ------------
-        offset (int):
-            The offset
-        limit (int):
-            The limit
-        sort_by (SubmissionSortBy or str):
-            The sort by
+        Args:
+            offset (int): The offset
+            limit (int): The limit
+            sort_by (SubmissionSortBy or str): The sort by
 
         Returns:
-        --------
-        List[Submission]:
-            Returns a list of submission. An empty list would  be returned if no results are found.
+            List[Submission]: Returns a list of submission. An empty list would  be returned if no results are found.
 
         """
         match sort_by:
@@ -162,6 +163,29 @@ class SubmissionAPI:
             session.refresh(db_submission)
             return db_submission
 
+    def fuzzy_search(
+        self,
+        query: str = Query(default="query", max_length=50),
+        limit: int = Query(default=10, le=100),
+    ) -> List[Submission]:
+        if len(query) == 0:
+            return []
+
+        with Session(self.engine) as session:
+            submissions = session.exec(select(Submission)).all()
+            choices = [
+                {"id": submission.id, "title": submission.title}
+                for submission in submissions
+            ]
+
+            results = process.extract(query, choices, limit=limit)
+
+            ids = [result[0]["id"] for result in results]
+
+            matched_submissions = [self.read_submission(id) for id in ids]
+
+            return matched_submissions
+
     def search_submission(
         self,
         submission_id: str = None,
@@ -172,7 +196,7 @@ class SubmissionAPI:
         ),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
         offset: int = 0,
-        limit: int = Query(default=10, le=100),
+        limit: int = Query(default=10, le=10000),
     ) -> List[Submission]:
         match sort_by:
             case "id":
@@ -214,7 +238,7 @@ class SubmissionAPI:
                 return results
             return []
 
-    class MonthSelection(str, Enum):
+    class _MonthSelection(str, Enum):
         January = "January"
         February = "February"
         March = "March"
@@ -229,22 +253,22 @@ class SubmissionAPI:
         December = "December"
         allMonths = "allMonths"
 
-    class CountTypeSelection(str, Enum):
+    class _CountTypeSelection(str, Enum):
         yta = "yta"
         nta = "nta"
         esh = "esh"
         info = "info"
         nah = "nah"
 
-    class YearSelection(str, Enum):
+    class _YearSelection(str, Enum):
         year_2022 = "2022"
         year_2023 = "2023"
         year_2024 = "2024"
 
     # Raw SQL Alchemy Query for this. This will deprecate the use of the top.json static implementation
     # This query could be rewritten to be more database agnostic.
-    def top(
-        self, year: YearSelection, month: MonthSelection, type: CountTypeSelection
+    def top_submission(
+        self, year: _YearSelection, month: _MonthSelection, type: _CountTypeSelection
     ) -> List[Submission]:
         match month:
             case "January":
@@ -323,14 +347,11 @@ class SubmissionAPI:
                 res["created_utc"] = record[4]
                 res["permalink"] = record[5]
                 res["score"] = record[6]
-                # res["month"] = record[7]
-                # res["year"] = record[8]
-                # res["count"] = record[9]
                 results.append(res)
 
             return results
 
-    def random(self) -> Submission:
+    def random_submission(self) -> Submission:
         with Session(self.engine) as session:
             count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
 

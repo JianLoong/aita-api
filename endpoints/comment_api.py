@@ -28,7 +28,7 @@ class CommentAPI:
         )
 
         self.router.add_api_route(
-            "/searchComment", self.search_comments, methods=["GET"], tags=["Comment"]
+            "/comments/search", self.search_comments, methods=["GET"], tags=["Comment"]
         )
 
     def read_comment(self, id: int):

@@ -37,6 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install -r requirements.txt
 
 RUN python -m nltk.downloader punkt
+RUN python -m nltk.downloader stopwords
 # Switch to the non-privileged user to run the application.
 # USER appuser
 

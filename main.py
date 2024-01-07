@@ -41,7 +41,7 @@ app.add_middleware(
 database_config = DatabaseConfig()
 engine = database_config.get_engine()
 
-static_api = StaticAPI()
+
 submission_api = SubmissionAPI(engine)
 openai_analysis_api = OpenAIInferenceAPI(engine)
 comment_api = CommentAPI(engine)
@@ -52,31 +52,25 @@ app.include_router(prefix="/api/v2", router=submission_api.router)
 app.include_router(prefix="/api/v2", router=comment_api.router)
 app.include_router(prefix="/api/v2", router=openai_analysis_api.router)
 app.include_router(prefix="/api/v2", router=summary_api.router)
-app.include_router(prefix="/api/v2", router=static_api.router)
 
 
 @repeat_every(seconds=60 * 60)  # 1 hour
-def remove_expired_tokens_task() -> None:
-    # print("Crawling")
-    # crawler = Crawler()
+def updated_submissions() -> None:
+    print("Crawling")
+    crawler = Crawler()
+    crawler.configure_agent()
 
-    # crawler.configure_agent()
+    if crawler.validate_configuration is False:
+        print("Invalid configuration")
+        raise Exception("Invalid configuration.")
 
-    # if crawler.validate_configuration is False:
-    #     print("Invalid configuration")
-    #     raise Exception("Invalid configuration.")
-
-    # crawler.crawl()
-
+    crawler.crawl()
     ap = AnalyticsProcessor()
     print("Processing submissions")
     submissions = ap.get_submissions()
-    # ap.process(submissions)
-    # ap.generate_search()
-
+    ap.process(submissions)
     oap = OpenAIProccessor()
-
     oap.process(submissions)
 
 
-app.add_event_handler("startup", remove_expired_tokens_task)
+# app.add_event_handler("startup", updated_submissions)

@@ -16,7 +16,7 @@ class OpenAIInferenceAPI:
 
     def _setup_openai_analysis_routes(self) -> None:
         self.router.add_api_route(
-            "/openai_analysis/{id}",
+            "/openai-analysis/{id}",
             self.read_openai_inference,
             methods=["GET"],
             tags=["OpenAI"],

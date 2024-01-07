@@ -41,7 +41,7 @@ class AnalyticsProcessor:
 
             replies = ""
 
-            print("Processsing submission : " + submission["title"])
+            print("Processsing analytics: " + submission["title"])
             for reply in submission["replies"]:
                 replies = replies + reply
 
@@ -97,7 +97,7 @@ class AnalyticsProcessor:
         yesterday_utc = calendar.timegm(yesterday.timetuple())
 
         submissions = self.submission_api.search_submission(
-            start_utc=yesterday_utc, end_utc=start_utc, limit=100
+            start_utc=yesterday_utc, end_utc=start_utc, limit=10000
         )
 
         submissions_json = []
@@ -206,4 +206,3 @@ if __name__ == "__main__":
     # print("Processing submissions")
     submissions = ap.get_submissions()
     ap.process(submissions)
-    ap.generate_search()
