@@ -161,3 +161,6 @@ cython_debug/
 
 # Project Specific
 database
+
+# New Relic
+newrelic.ini

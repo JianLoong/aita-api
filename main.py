@@ -7,7 +7,6 @@ from endpoints.comment_api import CommentAPI
 from fastapi.middleware.cors import CORSMiddleware
 from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
-from endpoints.static_api import StaticAPI
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
 
@@ -73,4 +72,4 @@ def updated_submissions() -> None:
     oap.process(submissions)
 
 
-# app.add_event_handler("startup", updated_submissions)
+app.add_event_handler("startup", updated_submissions)
