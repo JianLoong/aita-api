@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy import Engine
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException
@@ -31,14 +32,14 @@ class CommentAPI:
             "/comments/search", self.search_comments, methods=["GET"], tags=["Comment"]
         )
 
-    def read_comment(self, id: int):
+    def read_comment(self, id: int) -> Comment:
         with Session(self.engine) as session:
             comment = session.get(Comment, id)
             if not comment:
                 raise HTTPException(status_code=404, detail="Comment not found")
             return comment
 
-    def create_comment(self, comment: Comment):
+    def create_comment(self, comment: Comment) -> Comment:
         with Session(self.engine) as session:
             comment.id = None
             session.add(comment)
@@ -49,7 +50,7 @@ class CommentAPI:
     def search_comments(
         self,
         submission_id: str = None,
-    ):
+    ) -> List[Comment]:
         with Session(self.engine) as session:
             if submission_id is not None:
                 statement = select(Comment).where(
@@ -57,7 +58,4 @@ class CommentAPI:
                 )
                 results = session.exec(statement).all()
                 return results
-            # 1664646465
-            # 1701692714000
-
             return []

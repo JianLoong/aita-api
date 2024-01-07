@@ -1,20 +1,20 @@
 from fastapi import FastAPI
-from endpoints.health_api import HealthAPI
-from utils.analytics import AnalyticsProcessor
-from utils.crawler import Crawler
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_utilities import repeat_every
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from endpoints.comment_api import CommentAPI
-
-from fastapi.middleware.cors import CORSMiddleware
 from endpoints.database_config import DatabaseConfig
+from endpoints.health_api import HealthAPI
 from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
-
-from fastapi_utilities import repeat_every
-
+from utils.analytics import AnalyticsProcessor
+from utils.crawler import Crawler
 from utils.process_openai import OpenAIProccessor
-
 
 app = FastAPI(
     title="AITA API",
@@ -37,6 +37,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Limiters
+limiter = Limiter(key_func=get_remote_address, default_limits=["20/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 database_config = DatabaseConfig()
 engine = database_config.get_engine()
@@ -57,7 +62,7 @@ app.include_router(prefix="/api/v2", router=summary_api.router)
 
 
 @repeat_every(seconds=60 * 60)  # 1 hour
-def updated_submissions() -> None:
+def update_submissions() -> None:
     print("Crawling")
     crawler = Crawler()
     crawler.configure_agent()
@@ -75,4 +80,4 @@ def updated_submissions() -> None:
     oap.process(submissions)
 
 
-app.add_event_handler("startup", updated_submissions)
+# app.add_event_handler("startup", update_submissions)

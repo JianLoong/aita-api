@@ -1,19 +1,20 @@
-from datetime import datetime
-from fastapi import APIRouter
-
 import time
-import sqlalchemy
-import psutil
+from datetime import datetime
 
+import psutil
+import sqlalchemy
+from fastapi import APIRouter
 from sqlmodel import Session, select
 
 from models.comment import Comment
 from models.openai_analytics import OpenAIAnalysis
 from models.submission import Submission
+from models.summary import Summary
 
 
 class HealthAPI:
     """
+
     Notes:
         https://thinhdanggroup.github.io/health-check-api/
         https://snyk.io/advisor/python/psutil/functions/psutil.disk_usage
@@ -83,6 +84,10 @@ class HealthAPI:
                 select(sqlalchemy.func.count(OpenAIAnalysis.id))
             ).one()
 
+            summary_count = session.exec(
+                select(sqlalchemy.func.count(Summary.id))
+            ).one()
+
             end_time = time.time() - start_time
 
         health["message"] = "It works"
@@ -94,8 +99,9 @@ class HealthAPI:
             "submissionCount": submission_count,
             "commentCount": comment_count,
             "openAIAnalysisCount": openai_analysis_count,
+            "summaryCount": summary_count,
         }
-        health["dbResponseTime"] = end_time / 3
+        health["dbResponseTime"] = end_time
         health["cpuPercent"] = psutil.cpu_percent()
         health["virtualMemory"] = psutil.virtual_memory()
         health["memoryUsed"] = psutil.virtual_memory()[2]

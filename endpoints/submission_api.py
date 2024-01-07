@@ -3,12 +3,16 @@ from random import randrange
 from typing import List
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fuzzywuzzy import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
 from models.submission import Submission
+
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
 
 
 class SubmissionAPI:
@@ -87,7 +91,9 @@ class SubmissionAPI:
 
     def read_submissions(
         self,
-        offset: int = 0,
+        request: Request,
+        response: Response,
+        offset: int = Query(default=0, le=100),
         limit: int = Query(default=10, le=100),
         sort_by: _SubmissionSortBy = Query(
             alias="sortBy", default=_SubmissionSortBy.id
@@ -125,9 +131,18 @@ class SubmissionAPI:
                 order = desc
 
         with Session(self.engine) as session:
+            submission_count = session.exec(
+                select(sqlalchemy.func.count(Submission.id))
+            ).one()
+
             submissions = session.exec(
                 select(Submission).offset(offset).limit(limit).order_by(order(sort))
             ).all()
+
+            response.headers["X-Limit"] = str(limit)
+            response.headers["X-Offset"] = str(offset)
+            response.headers["X-Count"] = str(submission_count)
+
             return submissions
 
     def create_submission(self, submission: Submission):
