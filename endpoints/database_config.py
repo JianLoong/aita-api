@@ -2,7 +2,7 @@ import logging
 import os
 
 
-from dotenv import dotenv_values, load_dotenv, find_dotenv
+from dotenv import load_dotenv, find_dotenv
 from sqlalchemy import Engine
 from sqlmodel import SQLModel, create_engine
 

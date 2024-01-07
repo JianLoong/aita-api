@@ -1,6 +1,6 @@
 from sqlalchemy import Engine
 from dotenv import dotenv_values
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from models.comment import Comment

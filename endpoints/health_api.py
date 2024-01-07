@@ -20,11 +20,6 @@ class HealthAPI:
     """
 
     def get_hdd(self):
-        """Docstring.
-
-        Returns:
-            TYPE: Description
-        """
         try:
             hdd = psutil.disk_partitions()
             data = []
