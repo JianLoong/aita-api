@@ -196,7 +196,7 @@ class SubmissionAPI:
         ),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
         offset: int = 0,
-        limit: int = Query(default=10, le=10000),
+        limit: int = Query(default=10, le=100),
     ) -> List[Submission]:
         match sort_by:
             case "id":

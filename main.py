@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from endpoints.health_api import HealthAPI
 from utils.analytics import AnalyticsProcessor
 from utils.crawler import Crawler
 
@@ -41,12 +42,14 @@ database_config = DatabaseConfig()
 engine = database_config.get_engine()
 
 
+health_api = HealthAPI(engine)
 submission_api = SubmissionAPI(engine)
 openai_analysis_api = OpenAIInferenceAPI(engine)
 comment_api = CommentAPI(engine)
 summary_api = SummaryAPI(engine)
 
 
+app.include_router(prefix="/api/v2", router=health_api.router)
 app.include_router(prefix="/api/v2", router=submission_api.router)
 app.include_router(prefix="/api/v2", router=comment_api.router)
 app.include_router(prefix="/api/v2", router=openai_analysis_api.router)
