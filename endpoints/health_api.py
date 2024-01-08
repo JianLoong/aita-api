@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from sqlmodel import Session, select
 
 from models.comment import Comment
+from models.health import Health
 from models.openai_analytics import OpenAIAnalysis
 from models.submission import Submission
 from models.summary import Summary
@@ -62,16 +63,15 @@ class HealthAPI:
 
     def _setup_summary_routes(self) -> None:
         self.router.add_api_route(
-            "/health", self.read_health, methods=["GET"], tags=["Health"]
+            "/health",
+            self.read_health,
+            methods=["GET"],
+            tags=["Health"],
+            description="Health Check for the AITA API",
         )
 
-    def read_health(self):
-        health = dict()
-
-        end_time = None
-
+    def read_health(self) -> Health:
         with Session(self.engine) as session:
-            start_time = time.time()
             submission_count = session.exec(
                 select(sqlalchemy.func.count(Submission.id))
             ).one()
@@ -88,23 +88,15 @@ class HealthAPI:
                 select(sqlalchemy.func.count(Summary.id))
             ).one()
 
-            end_time = time.time() - start_time
-
-        health["message"] = "It works"
-        health["description"] = "AITA API Health Check"
-        health["timestamp"] = datetime.now()
-        health["uptime"] = time.monotonic()
-        health["engine"] = str(self.engine)
-        health["counts"] = {
+        counts = {
             "submissionCount": submission_count,
             "commentCount": comment_count,
             "openAIAnalysisCount": openai_analysis_count,
             "summaryCount": summary_count,
         }
-        health["dbResponseTime"] = end_time
-        health["cpuPercent"] = psutil.cpu_percent()
-        health["virtualMemory"] = psutil.virtual_memory()
-        health["memoryUsed"] = psutil.virtual_memory()[2]
-        health["disk"] = self.get_hdd()
 
-        return health
+        health_check = Health(
+            counts=counts, engine=str(self.engine), disk=self.get_hdd()
+        )
+
+        return health_check

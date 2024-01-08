@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fuzzywuzzy import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
+from models.message import Message
 
 from models.submission import Submission
 
@@ -30,7 +31,7 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Gets submissions from the database",
-            responses={429: {"model": ""}},
+            responses={429: {"model": Message}},
         )
         self.router.add_api_route(
             "/submission/{id}",
@@ -206,6 +207,7 @@ class SubmissionAPI:
 
     def search_submission(
         self,
+        response: Response,
         submission_id: str = None,
         start_utc: str = Query(alias="startUTC", default=None),
         end_utc: str = Query(alias="endUTC", default=None),
@@ -233,6 +235,9 @@ class SubmissionAPI:
                 order = asc
             case _:
                 order = desc
+
+        response.headers["X-Limit"] = str(limit)
+        response.headers["X-Offset"] = str(offset)
 
         with Session(self.engine) as session:
             if submission_id is not None:

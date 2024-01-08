@@ -1,6 +1,5 @@
 import time
 
-from fastapi_profiler import PyInstrumentProfilerMiddleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utilities import repeat_every
@@ -55,6 +54,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+# Database configuration
 database_config = DatabaseConfig()
 engine = database_config.get_engine()
 
@@ -101,4 +101,4 @@ def update_submissions() -> None:
     oap.process(submissions)
 
 
-app.add_event_handler("startup", update_submissions)
+# app.add_event_handler("startup", update_submissions)
