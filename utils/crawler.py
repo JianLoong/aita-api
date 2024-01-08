@@ -1,6 +1,6 @@
 import os
 
-import praw
+import asyncpraw
 import sqlalchemy
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Response
@@ -40,72 +40,76 @@ class Crawler:
 
         return cls._instance
 
-    def crawl(self) -> None:
-        reddit = praw.Reddit(
+    async def crawl(self) -> None:
+        async with asyncpraw.Reddit(
             client_id=self.client_id,
             client_secret=self.client_secret,
             user_agent=self.agent,
-        )
+        ) as reddit:
+            reddit.read_only = True
 
-        db_config = DatabaseConfig()
+            db_config = DatabaseConfig()
 
-        engine = db_config.get_engine()
+            engine = db_config.get_engine()
 
-        submission_api = SubmissionAPI(engine)
-        comment_api = CommentAPI(engine)
+            submission_api = SubmissionAPI(engine)
+            comment_api = CommentAPI(engine)
 
-        print("Creating/Updating submission")
+            print("Creating/Updating submission")
 
-        for submission in reddit.subreddit(self.subreddit_name).hot(
-            limit=self.post_limit
-        ):
-            custom_submission: Submission = Submission()
+            subreddit = await reddit.subreddit(self.subreddit_name, fetch=True)
 
-            custom_submission.id = None
-            custom_submission.submission_id = submission.id
-            custom_submission.selftext = submission.selftext
-            custom_submission.title = submission.title
-            custom_submission.created_utc = submission.created_utc
-            custom_submission.permalink = submission.permalink
-            custom_submission.score = submission.score
+            async for submission in subreddit.hot(limit=self.post_limit):
+                custom_submission: Submission = Submission()
 
-            if submission.selftext == "[removed]":
-                continue
+                custom_submission.id = None
+                custom_submission.submission_id = submission.id
+                custom_submission.selftext = submission.selftext
+                custom_submission.title = submission.title
+                custom_submission.created_utc = submission.created_utc
+                custom_submission.permalink = submission.permalink
+                custom_submission.score = submission.score
 
-            response = Response()
+                if submission.selftext == "[removed]":
+                    continue
 
-            try:
-                results = submission_api.search_submission(
-                    response=response,
-                    submission_id=custom_submission.submission_id,
-                    limit=1,
-                )
-
-                if len(results) == 0:
-                    print(f"Creating submission for {custom_submission.title}")
-                    submission_api.create_submission(custom_submission)
-                else:
-                    custom_submission.id = results[0].id
-                    print(
-                        f"Updating submission for {results[0].id} {custom_submission.title}"
-                    )
-                    submission_api.update_submission(results[0].id, custom_submission)
-            except Exception as e:
-                print(e)
-
-            submission.comments.replace_more(limit=0)
-            comments = submission.comments.list()
-
-            for comment in comments:
-                custom_comment: Comment = Comment()
-                custom_comment.submission_id = submission.id
-                custom_comment.message = comment.body
-                custom_comment.parent_id = comment.parent_id
-                custom_comment.created_utc = comment.created_utc
-                custom_comment.score = comment.score
-                custom_comment.comment_id = comment.id
+                response = Response()
 
                 try:
-                    comment_api.create_comment(custom_comment)
-                except sqlalchemy.exc.IntegrityError:
-                    continue
+                    results = submission_api.search_submission(
+                        response=response,
+                        submission_id=custom_submission.submission_id,
+                        limit=1,
+                    )
+
+                    if len(results) == 0:
+                        print(f"Creating submission for {custom_submission.title}")
+                        submission_api.create_submission(custom_submission)
+                    else:
+                        custom_submission.id = results[0].id
+                        print(
+                            f"Updating submission for {results[0].id} {custom_submission.title}"
+                        )
+                        submission_api.update_submission(
+                            results[0].id, custom_submission
+                        )
+                except Exception as e:
+                    print(e)
+
+                # submission.comments.replace_more(limit=0)
+                # comments = await submission.comments.list()
+                comments = await submission.comments()
+
+                for comment in comments:
+                    custom_comment: Comment = Comment()
+                    custom_comment.submission_id = submission.id
+                    custom_comment.message = comment.body
+                    custom_comment.parent_id = comment.parent_id
+                    custom_comment.created_utc = comment.created_utc
+                    custom_comment.score = comment.score
+                    custom_comment.comment_id = comment.id
+
+                    try:
+                        comment_api.create_comment(custom_comment)
+                    except sqlalchemy.exc.IntegrityError:
+                        continue

@@ -83,10 +83,10 @@ async def add_process_time_header(request: Request, call_next):
 
 
 @repeat_every(seconds=60 * 60)  # 1 hour
-def update_submissions() -> None:
+async def update_submissions() -> None:
     print("Crawling")
     crawler = Crawler()
-    crawler.crawl()
+    await crawler.crawl()
 
     ap = AnalyticsProcessor()
     print("Processing submissions")
