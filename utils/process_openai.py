@@ -1,14 +1,16 @@
+import calendar
 import logging
 import os
-from fastapi import HTTPException
+from datetime import datetime, timedelta
 
 from dotenv import find_dotenv, load_dotenv
+from fastapi import HTTPException
 from openai import OpenAI
+
 from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from models.openai_analytics import OpenAIAnalysis
-from utils.analytics import AnalyticsProcessor
 
 
 class OpenAIProccessor:
@@ -26,16 +28,31 @@ class OpenAIProccessor:
 
         self.client = OpenAI()
 
-    def process(self, submissions):
-        for sub in submissions:
-            print("Creating OPEN AI Analysis for " + sub["title"])
-            try:
-                self.open_ai_analysis.read_openai_inference(sub["id"])
-                logging.info("Analysis exist. Skipping")
+    def process(self):
+        print("Creating/Updating OPENAI Analysis")
 
-            except HTTPException:
+        today = datetime.today()
+        start = datetime(today.year, today.month, today.day) + timedelta(1)
+        yesterday = start - timedelta(2)
+
+        # Convert time to UTC time
+        start_utc = calendar.timegm(start.timetuple())
+        yesterday_utc = calendar.timegm(yesterday.timetuple())
+
+        submissions = self.submission_api.search_submission(
+            start_utc=yesterday_utc, end_utc=start_utc, limit=10000
+        )
+
+        for sub in submissions:
+            try:
+                self.open_ai_analysis.read_openai_inference(sub.id)
+                print("Analysis exist for " + sub.title + " skipping")
+
+            except HTTPException as e:
+                print(e)
                 # Doesnt exist so process
-                text = self.submission_api.read_submission(sub["id"])
+                print(f"Creating OpenAI Analysis for {sub.id} {sub.title}")
+                text = self.submission_api.read_submission(sub.id)
                 question = """
                 Based on the following context, am I the asshole? {selftext}
                 """.format(
@@ -52,21 +69,7 @@ class OpenAIProccessor:
 
                 entry = OpenAIAnalysis()
 
-                entry.id = sub["id"]
+                entry.id = sub.id
                 entry.text = response.choices[0].message.content
 
                 self.open_ai_analysis.create_opeai_analysis(entry)
-
-
-if __name__ == "__main__":
-    # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-    ap = AnalyticsProcessor()
-    print("Processing submissions")
-    submissions = ap.get_submissions()
-
-    print("Running analytics")
-
-    ap = OpenAIProccessor()
-    # print("Processing submissions")
-    ap.process(submissions)

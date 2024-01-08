@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-
 from sqlmodel import Session
 
 from models.summary import Summary
@@ -29,6 +28,36 @@ class SummaryAPI:
             if not summary:
                 raise HTTPException(status_code=404, detail="Summary not found")
             return summary
+
+    def upsert_summary(self, id: int, summary: Summary) -> Summary:
+        """
+        Upsert a summary
+
+        Creates a summary in the databse if does not already exists,
+        else it is used to update the existing one
+
+        Args:
+            id:
+                The summary id
+            summary:
+                The Summary
+
+        """
+        with Session(self.engine) as session:
+            db_summary = session.get(Summary, id)
+
+            if not db_summary:
+                db_summary = summary
+
+            summary_data = summary.model_dump(exclude_unset=True)
+            for key, value in summary_data.items():
+                setattr(db_summary, key, value)
+
+            session.add(db_summary)
+            session.commit()
+            session.refresh(db_summary)
+
+            return db_summary
 
     def update_summary(self, id: int, summary: Summary):
         with Session(self.engine) as session:

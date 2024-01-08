@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fuzzywuzzy import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
-from models.message import Message
+
 
 from models.submission import Submission
 
@@ -27,7 +27,6 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Gets submissions from the database",
-            responses={429: {"model": Message}},
         )
         self.router.add_api_route(
             "/submission/{id}",
@@ -213,7 +212,7 @@ class SubmissionAPI:
 
     def search_submission(
         self,
-        response: Response,
+        response: Response = Response(),
         submission_id: str = None,
         start_utc: str = Query(alias="startUTC", default=None),
         end_utc: str = Query(alias="endUTC", default=None),
@@ -382,6 +381,23 @@ class SubmissionAPI:
                 results.append(res)
 
             return results
+
+    def upsert_submission(self, id: int, submission: Submission) -> Submission:
+        with Session(self.engine) as session:
+            db_submission = session.get(Submission, id)
+            if not db_submission:
+                session.add(submission)
+                session.commit()
+                session.refresh(submission)
+                return submission
+            else:
+                submission_data = submission.model_dump(exclude_unset=True)
+                for key, value in submission_data.items():
+                    setattr(db_submission, key, value)
+                session.add(db_submission)
+                session.commit()
+                session.refresh(db_submission)
+                return db_submission
 
     def random_submission(self) -> Submission:
         with Session(self.engine) as session:

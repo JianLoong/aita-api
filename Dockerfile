@@ -6,7 +6,7 @@
 
 ARG PYTHON_VERSION=3.10
 FROM python:3.10-slim as base
-
+RUN apt-get update && apt-get install build-essential -y
 
 # Prevents Python from writing pyc files.
 # ENV PYTHONDONTWRITEBYTECODE=1
@@ -33,14 +33,24 @@ RUN adduser \
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+# RUN python -m pip install --upgrade pip setuptools wheel
+
+# RUN --mount=type=cache,target=/root/.cache/pip \
+#     --mount=type=bind,source=requirements.txt,target=requirements.txt \
+#     python -m pip install -r requirements.txt
+
+# RUN python -m nltk.downloader punkt
+# RUN python -m nltk.downloader stopwords
+# Switch to the non-privileged user to run the application.
+# USER appuser
+RUN python -m pip install --upgrade pip
+RUN python -m pip install --upgrade setuptools wheel
+
+COPY requirements.txt .
+RUN python -m pip install -r requirements.txt
 
 RUN python -m nltk.downloader punkt
 RUN python -m nltk.downloader stopwords
-# Switch to the non-privileged user to run the application.
-# USER appuser
 
 # Copy the source code into the container.
 COPY . .

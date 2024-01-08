@@ -1,37 +1,31 @@
 # Perform sentiment analysis and then create JSON files that will be used for application
 import calendar
-import json
 import logging
-import os
 import re
 from datetime import datetime, timedelta
-from dotenv import find_dotenv, load_dotenv
 
-import sqlalchemy
 from afinn import Afinn
 from nltk.corpus import stopwords
 from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 from nrclex import NRCLex
-from sqlmodel import Session, create_engine, select
+
 from endpoints.breakdown_api import BreakdownAPI
 from endpoints.comment_api import CommentAPI
-
 from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
 from models.breakdown import Breakdown
-from models.submission import Submission
 from models.summary import Summary
 
 
 class AnalyticsProcessor:
     def __init__(self):
-        engine = DatabaseConfig().get_engine()
-        self.submission_api = SubmissionAPI(engine)
-        self.summary_api = SummaryAPI(engine)
-        self.breakdown_api = BreakdownAPI(engine)
-        self.comment_api = CommentAPI(engine)
+        self.engine = DatabaseConfig().get_engine()
+        self.submission_api = SubmissionAPI(self.engine)
+        self.summary_api = SummaryAPI(self.engine)
+        self.breakdown_api = BreakdownAPI(self.engine)
+        self.comment_api = CommentAPI(self.engine)
 
     def process(self, submissions):
         afinn = Afinn()
@@ -40,7 +34,11 @@ class AnalyticsProcessor:
             result = {"id": 0, "afinn": 0, "emotion": 0, "word_freq": 0, "counts": 0}
 
             replies = ""
-            print("Creating analysis for " + submission["title"])
+
+            print(
+                f"Creating analysis for {str(submission['id'])} {submission['title']}"
+            )
+
             for reply in submission["replies"]:
                 replies = replies + reply
 
@@ -75,16 +73,10 @@ class AnalyticsProcessor:
                 nah=nah_count,
             )
 
-            try:
-                self.summary_api.create_summary(summary)
-            except sqlalchemy.exc.IntegrityError:
-                self.summary_api.update_summary(result["id"], summary)
+            id = result["id"]
 
-            try:
-                self.breakdown_api.create_breakdown(breakdown)
-            except sqlalchemy.exc.IntegrityError:
-                self.breakdown_api.update_breakdown(breakdown.id, breakdown)
-                continue
+            self.summary_api.upsert_summary(id, summary)
+            self.breakdown_api.upsert_breakdown(id, breakdown)
 
     def get_submissions(self):
         today = datetime.today()
@@ -166,42 +158,3 @@ class AnalyticsProcessor:
                 filtered_sentence.append(w)
 
         return filtered_sentence
-
-    def generate_search(self):
-        indexes = []
-
-        # sqlite_file_name = "AmItheAsshole.db"
-        load_dotenv(find_dotenv())
-        # config = dotenv_values(".env")
-        sqlite_file_name = os.environ.get("DATABASE_NAME")
-        sqlite_url = f"sqlite:///database//{sqlite_file_name}"
-        engine = create_engine(sqlite_url, echo=False)
-
-        with Session(engine) as session:
-            statement = select(Submission)
-            results = session.exec(statement)
-            for submission in results:
-                entry = dict()
-                entry["id"] = submission.id
-                entry["title"] = submission.title
-                entry["created_utc"] = submission.created_utc
-
-                indexes.append(entry)
-
-        self.write_to_file(json.dumps(indexes), "search")
-
-    def write_to_file(self, json, file_name):
-        f = open("./endpoints/static/" + str(file_name) + ".json", "w")
-        f.write(json)
-        f.close()
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-    logging.info("Running analytics")
-
-    ap = AnalyticsProcessor()
-    # print("Processing submissions")
-    submissions = ap.get_submissions()
-    ap.process(submissions)

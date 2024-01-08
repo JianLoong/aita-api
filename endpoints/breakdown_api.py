@@ -22,6 +22,21 @@ class BreakdownAPI:
             session.refresh(breakdown)
             return breakdown
 
+    def upsert_breakdown(self, id: int, breakdown: Breakdown) -> Breakdown:
+        with Session(self.engine) as session:
+            db_breakdown = session.get(Breakdown, id)
+
+            if not db_breakdown:
+                db_breakdown = breakdown
+
+            breakdown_data = breakdown.model_dump(exclude_unset=True)
+            for key, value in breakdown_data.items():
+                setattr(db_breakdown, key, value)
+            session.add(db_breakdown)
+            session.commit()
+            session.refresh(db_breakdown)
+            return db_breakdown
+
     def update_breakdown(self, id: int, summary: Breakdown):
         with Session(self.engine) as session:
             db_breakdown = session.get(Breakdown, id)

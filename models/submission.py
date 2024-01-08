@@ -11,14 +11,13 @@ class Submission(SQLModel, table=True):
         max_length=10,
     )
     submission_id: str = Field(
-        default=None,
+        max_length=10,
         title="The Id obtained from the Reddit Crawler, actual Id used on Reddit",
     )
     title: str = Field(
-        default=None,
         title="The title of the submission",
     )
     selftext: str
-    created_utc: int
+    created_utc: float
     permalink: str
     score: int = Field(index=True)

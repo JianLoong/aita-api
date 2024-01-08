@@ -1,7 +1,3 @@
-import time
-from datetime import datetime
-
-import psutil
 import sqlalchemy
 from fastapi import APIRouter
 from sqlmodel import Session, select
@@ -14,46 +10,6 @@ from models.summary import Summary
 
 
 class HealthAPI:
-    """
-
-    Notes:
-        https://thinhdanggroup.github.io/health-check-api/
-        https://snyk.io/advisor/python/psutil/functions/psutil.disk_usage
-    """
-
-    def get_hdd(self):
-        try:
-            hdd = psutil.disk_partitions()
-            data = []
-            for each in hdd:
-                device = each.device
-                path = each.mountpoint
-                fstype = each.fstype
-
-                drive = psutil.disk_usage(path)
-                total = drive.total
-                total = total / 1000000000
-                used = drive.used
-                used = used / 1000000000
-                free = drive.free
-                free = free / 1000000000
-                percent = drive.percent
-                drives = {
-                    "device": device,
-                    "path": path,
-                    "fstype": fstype,
-                    "total": float("{0: .2f}".format(total)),
-                    "used": float("{0: .2f}".format(used)),
-                    "free": float("{0: .2f}".format(free)),
-                    "percent": percent,
-                }
-                data.append(drives)
-            if data:
-                return data
-
-        except Exception as e:
-            print(e)
-
     def __init__(self, engine):
         self.engine = engine
         self.router = APIRouter()
@@ -89,14 +45,12 @@ class HealthAPI:
             ).one()
 
         counts = {
-            "submissionCount": submission_count,
-            "commentCount": comment_count,
-            "openAIAnalysisCount": openai_analysis_count,
-            "summaryCount": summary_count,
+            "submissions": submission_count,
+            "comments": comment_count,
+            "openAIAnalysis": openai_analysis_count,
+            "summaries": summary_count,
         }
 
-        health_check = Health(
-            counts=counts, engine=str(self.engine), disk=self.get_hdd()
-        )
+        health_check = Health(counts=counts, engine=str(self.engine))
 
         return health_check

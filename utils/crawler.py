@@ -1,17 +1,21 @@
+import os
+
 import praw
 import sqlalchemy
-import logging
-import os
+from dotenv import find_dotenv, load_dotenv
+from fastapi import Response
+
 from endpoints.comment_api import CommentAPI
 from endpoints.database_config import DatabaseConfig
 from endpoints.submission_api import SubmissionAPI
 from models.comment import Comment
 from models.submission import Submission
-from dotenv import find_dotenv, load_dotenv
 
 
 class Crawler:
-    def configure_agent(self) -> None:
+    _instance = None
+
+    def _configure_agent(self) -> None:
         self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
 
         load_dotenv(find_dotenv())
@@ -21,11 +25,20 @@ class Crawler:
         self.subreddit_name = os.environ.get("SUBREDDIT_NAME")
         self.post_limit: int = int(os.environ.get("POST_LIMIT"))
 
-    def validate_configuration(self) -> bool:
+    def _validate_configuration(self) -> bool:
         if self.client_id is None or self.client_secret is None:
             return False
         if self.subreddit_name is None:
             return False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(Crawler, cls).__new__(cls)
+            # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+
+            cls._instance._configure_agent()
+
+        return cls._instance
 
     def crawl(self) -> None:
         reddit = praw.Reddit(
@@ -41,6 +54,8 @@ class Crawler:
         submission_api = SubmissionAPI(engine)
         comment_api = CommentAPI(engine)
 
+        print("Creating/Updating submission")
+
         for submission in reddit.subreddit(self.subreddit_name).hot(
             limit=self.post_limit
         ):
@@ -54,16 +69,29 @@ class Crawler:
             custom_submission.permalink = submission.permalink
             custom_submission.score = submission.score
 
+            if submission.selftext == "[removed]":
+                continue
+
+            response = Response()
+
             try:
-                if submission.selftext == "[removed]":
-                    continue
-                # logging.info("Creating submission for " + submission.title)
-                print("Creating submission for " + submission.title)
-                submission_api.create_submission(custom_submission)
-            except sqlalchemy.exc.IntegrityError:
-                submission_api.update_submission_by_submission_id(
-                    submission.id, custom_submission
+                results = submission_api.search_submission(
+                    response=response,
+                    submission_id=custom_submission.submission_id,
+                    limit=1,
                 )
+
+                if len(results) == 0:
+                    print(f"Creating submission for {custom_submission.title}")
+                    submission_api.create_submission(custom_submission)
+                else:
+                    custom_submission.id = results[0].id
+                    print(
+                        f"Updating submission for {results[0].id} {custom_submission.title}"
+                    )
+                    submission_api.update_submission(results[0].id, custom_submission)
+            except Exception as e:
+                print(e)
 
             submission.comments.replace_more(limit=0)
             comments = submission.comments.list()
@@ -81,16 +109,3 @@ class Crawler:
                     comment_api.create_comment(custom_comment)
                 except sqlalchemy.exc.IntegrityError:
                     continue
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-    crawler = Crawler()
-
-    crawler.configure_agent()
-
-    if crawler.validate_configuration is False:
-        raise Exception("Invalid configuration.")
-
-    crawler.crawl()

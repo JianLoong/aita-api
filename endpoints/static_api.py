@@ -1,18 +1,11 @@
 import json
-import logging
-import os
 
 from fastapi import APIRouter
 
 
 class StaticAPI:
     def __init__(self):
-        # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
-        # self.configure_database()
-        # self.create_db_and_tables()
         self.router = APIRouter()
-
         self._setup_breakdown_routes()
 
     def _setup_breakdown_routes(self) -> None:

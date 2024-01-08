@@ -20,7 +20,7 @@ from utils.process_openai import OpenAIProccessor
 
 app = FastAPI(
     title="AITA API",
-    description="API For AITA Subreddit",
+    description="API For AITA Subreddit. All mutation end points are disabled by default.",
     version="2.0.0",
     contact={
         "email": "jianloongliew@gmail.com",
@@ -86,19 +86,14 @@ async def add_process_time_header(request: Request, call_next):
 def update_submissions() -> None:
     print("Crawling")
     crawler = Crawler()
-    crawler.configure_agent()
-
-    if crawler.validate_configuration is False:
-        print("Invalid configuration")
-        raise Exception("Invalid configuration.")
-
     crawler.crawl()
+
     ap = AnalyticsProcessor()
     print("Processing submissions")
     submissions = ap.get_submissions()
     ap.process(submissions)
     oap = OpenAIProccessor()
-    oap.process(submissions)
+    oap.process()
 
 
-# app.add_event_handler("startup", update_submissions)
+app.add_event_handler("startup", update_submissions)

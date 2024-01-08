@@ -25,7 +25,7 @@ class OpenAIInferenceAPI:
 
     def create_opeai_analysis(self, open_ai_analysis: OpenAIAnalysis):
         with Session(self.engine) as session:
-            logging.info("Creating analysis for " + str(open_ai_analysis.id))
+            logging.info("Creating OPENAI for " + str(open_ai_analysis.id))
             session.add(open_ai_analysis)
             session.commit()
             session.refresh(open_ai_analysis)
