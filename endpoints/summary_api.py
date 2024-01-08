@@ -1,18 +1,26 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session
 
 from models.summary import Summary
 
 
 class SummaryAPI:
+    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
     def __init__(self, engine):
         self.engine = engine
         self.router = APIRouter()
+
         self._setup_summary_routes()
 
     def _setup_summary_routes(self) -> None:
         self.router.add_api_route(
-            "/summary/{id}", self.read_summary, methods=["GET"], tags=["Summary"]
+            "/summary/{id}",
+            self.read_summary,
+            methods=["GET"],
+            tags=["Summary"],
         )
 
     def create_summary(self, summary: Summary):
@@ -22,7 +30,10 @@ class SummaryAPI:
             session.refresh(summary)
             return summary
 
-    def read_summary(self, id: int) -> Summary:
+    def read_summary(
+        self,
+        id: int,
+    ) -> Summary:
         with Session(self.engine) as session:
             summary = session.get(Summary, id)
             if not summary:

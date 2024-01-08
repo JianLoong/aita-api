@@ -47,9 +47,25 @@ class CommentAPI:
             session.refresh(comment)
             return comment
 
+    def upsert_comment(self, id: int, comment: Comment) -> Comment:
+        with Session(self.engine) as session:
+            db_comment = session.get(Comment, id)
+
+            if not db_comment:
+                db_comment = comment
+
+            breakdown_data = comment.model_dump(exclude_unset=True)
+            for key, value in breakdown_data.items():
+                setattr(db_comment, key, value)
+            session.add(db_comment)
+            session.commit()
+            session.refresh(db_comment)
+            return db_comment
+
     def search_comments(
         self,
         submission_id: str = None,
+        comment_id: str = None,
     ) -> List[Comment]:
         with Session(self.engine) as session:
             if submission_id is not None:
@@ -58,4 +74,10 @@ class CommentAPI:
                 )
                 results = session.exec(statement).all()
                 return results
+
+            if comment_id is not None:
+                statement = select(Comment).where(Comment.comment_id == (comment_id))
+                results = session.exec(statement).all()
+                return results
+
             return []

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from dotenv import find_dotenv, load_dotenv
 from fastapi import HTTPException
-from openai import OpenAI
+from openai import AsyncOpenAI, OpenAI
 
 from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
@@ -26,9 +26,9 @@ class OpenAIProccessor:
 
         self.open_ai_analysis = OpenAIInferenceAPI(engine)
 
-        self.client = OpenAI()
+        self.client = AsyncOpenAI()
 
-    def process(self):
+    async def process(self):
         print("Creating/Updating OPENAI Analysis")
 
         today = datetime.today()
@@ -46,10 +46,9 @@ class OpenAIProccessor:
         for sub in submissions:
             try:
                 self.open_ai_analysis.read_openai_inference(sub.id)
-                print("Analysis exist for " + sub.title + " skipping")
+                print("OpenAI analysis exist for " + sub.title + " skipping")
 
-            except HTTPException as e:
-                print(e)
+            except HTTPException:
                 # Doesnt exist so process
                 print(f"Creating OpenAI Analysis for {sub.id} {sub.title}")
                 text = self.submission_api.read_submission(sub.id)
@@ -59,7 +58,7 @@ class OpenAIProccessor:
                     selftext=text
                 )
 
-                response = self.client.chat.completions.create(
+                response = await self.client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     response_format={"type": "text"},
                     messages=[
@@ -73,3 +72,5 @@ class OpenAIProccessor:
                 entry.text = response.choices[0].message.content
 
                 self.open_ai_analysis.create_opeai_analysis(entry)
+
+        print("OpenAI analysis completed.")

@@ -1,7 +1,7 @@
 import os
 
 import asyncpraw
-import sqlalchemy
+from asyncpraw.models import MoreComments
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Response
 
@@ -34,8 +34,6 @@ class Crawler:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(Crawler, cls).__new__(cls)
-            # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
-
             cls._instance._configure_agent()
 
         return cls._instance
@@ -93,23 +91,32 @@ class Crawler:
                         submission_api.update_submission(
                             results[0].id, custom_submission
                         )
-                except Exception as e:
-                    print(e)
 
-                # submission.comments.replace_more(limit=0)
-                # comments = await submission.comments.list()
-                comments = await submission.comments()
+                    # submission.comments.replace_more(limit=0)
+                    # comments = await submission.comments.list()
 
-                for comment in comments:
-                    custom_comment: Comment = Comment()
-                    custom_comment.submission_id = submission.id
-                    custom_comment.message = comment.body
-                    custom_comment.parent_id = comment.parent_id
-                    custom_comment.created_utc = comment.created_utc
-                    custom_comment.score = comment.score
-                    custom_comment.comment_id = comment.id
+                    comments = await submission.comments()
+                    await comments.replace_more(limit=0)
+                    all_comments = await comments.list()
 
-                    try:
-                        comment_api.create_comment(custom_comment)
-                    except sqlalchemy.exc.IntegrityError:
-                        continue
+                    for comment in all_comments:
+                        if isinstance(comment, MoreComments):
+                            continue
+
+                        custom_comment: Comment = Comment()
+                        custom_comment.submission_id = submission.id
+                        custom_comment.message = comment.body
+                        custom_comment.parent_id = comment.parent_id
+                        custom_comment.created_utc = comment.created_utc
+                        custom_comment.score = comment.score
+                        custom_comment.comment_id = comment.id
+
+                        results = comment_api.search_comments(
+                            comment_id=custom_comment.comment_id
+                        )
+
+                        if len(results) == 0:
+                            comment_api.create_comment(custom_comment)
+
+                except Exception as error:
+                    print(error)

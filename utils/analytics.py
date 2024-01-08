@@ -20,15 +20,26 @@ from models.summary import Summary
 
 
 class AnalyticsProcessor:
-    def __init__(self):
+    _instance = None
+
+    def _configure_processor(self):
         self.engine = DatabaseConfig().get_engine()
         self.submission_api = SubmissionAPI(self.engine)
         self.summary_api = SummaryAPI(self.engine)
         self.breakdown_api = BreakdownAPI(self.engine)
         self.comment_api = CommentAPI(self.engine)
 
-    def process(self, submissions):
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(AnalyticsProcessor, cls).__new__(cls)
+            cls._instance._configure_processor()
+
+        return cls._instance
+
+    def process(self):
         afinn = Afinn()
+
+        submissions = self.get_submissions()
 
         for submission in submissions:
             result = {"id": 0, "afinn": 0, "emotion": 0, "word_freq": 0, "counts": 0}

@@ -90,10 +90,10 @@ async def update_submissions() -> None:
 
     ap = AnalyticsProcessor()
     print("Processing submissions")
-    submissions = ap.get_submissions()
-    ap.process(submissions)
+    ap.process()
+
     oap = OpenAIProccessor()
-    oap.process()
+    await oap.process()
 
 
 app.add_event_handler("startup", update_submissions)
