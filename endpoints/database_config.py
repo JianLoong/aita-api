@@ -16,7 +16,7 @@ class DatabaseConfig:
         sqlite_file_name = os.environ.get("DATABASE_NAME")
         sqlite_url = f"sqlite:///database//{sqlite_file_name}"
 
-        self.engine = create_engine(sqlite_url, echo=False)
+        self.engine = create_engine(sqlite_url, echo=True)
 
         SQLModel.metadata.create_all(self.engine)
 

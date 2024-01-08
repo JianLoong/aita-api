@@ -14,7 +14,10 @@ class Submission(SQLModel, table=True):
         default=None,
         title="The Id obtained from the Reddit Crawler, actual Id used on Reddit",
     )
-    title: str
+    title: str = Field(
+        default=None,
+        title="The title of the submission",
+    )
     selftext: str
     created_utc: int
     permalink: str

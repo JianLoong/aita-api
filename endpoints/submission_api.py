@@ -11,10 +11,6 @@ from models.message import Message
 
 from models.submission import Submission
 
-# from slowapi import Limiter, _rate_limit_exceeded_handler
-# from slowapi.util import get_remote_address
-# from slowapi.errors import RateLimitExceeded
-
 
 class SubmissionAPI:
     def __init__(self, engine: Engine):
@@ -71,6 +67,16 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Obtains a random submission",
+            responses={
+                404: {
+                    "details": "Submission not found",
+                    "content": {
+                        "application/json": {
+                            "example": {"details": "Submission not found"},
+                        }
+                    },
+                }
+            },
         )
 
     # Enums for search submissions
@@ -380,6 +386,9 @@ class SubmissionAPI:
     def random_submission(self) -> Submission:
         with Session(self.engine) as session:
             count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
+
+            if count == 0:
+                raise HTTPException(status_code=404, detail="Submission not found")
 
             rand_number = randrange(count)
 

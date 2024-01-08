@@ -1,7 +1,7 @@
 from datetime import datetime
 import time
 from sqlmodel import Field, Column, SQLModel, JSON
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class Health(SQLModel, table=False):
