@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+import time
+
+from fastapi_profiler import PyInstrumentProfilerMiddleware
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utilities import repeat_every
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -20,6 +23,13 @@ app = FastAPI(
     title="AITA API",
     description="API For AITA Subreddit",
     version="2.0.0",
+    contact={
+        "email": "jianloongliew@gmail.com",
+    },
+    license_info={
+        "name": "Apache 2.0",
+        "identifier": "MIT",
+    },
 )
 
 # Configure origins for CORS
@@ -36,6 +46,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# app.add_middleware(PyInstrumentProfilerMiddleware)
 
 # Limiters
 limiter = Limiter(key_func=get_remote_address, default_limits=["20/minute"])
@@ -61,6 +73,15 @@ app.include_router(prefix="/api/v2", router=openai_analysis_api.router)
 app.include_router(prefix="/api/v2", router=summary_api.router)
 
 
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
 @repeat_every(seconds=60 * 60)  # 1 hour
 def update_submissions() -> None:
     print("Crawling")
@@ -80,4 +101,4 @@ def update_submissions() -> None:
     oap.process(submissions)
 
 
-# app.add_event_handler("startup", update_submissions)
+app.add_event_handler("startup", update_submissions)

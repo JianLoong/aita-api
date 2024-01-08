@@ -7,7 +7,7 @@ from fastapi import APIRouter
 
 class StaticAPI:
     def __init__(self):
-        logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+        # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
         # self.configure_database()
         # self.create_db_and_tables()

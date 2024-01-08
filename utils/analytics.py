@@ -40,8 +40,7 @@ class AnalyticsProcessor:
             result = {"id": 0, "afinn": 0, "emotion": 0, "word_freq": 0, "counts": 0}
 
             replies = ""
-
-            print("Processsing analytics: " + submission["title"])
+            print("Creating analysis for " + submission["title"])
             for reply in submission["replies"]:
                 replies = replies + reply
 
@@ -200,7 +199,7 @@ class AnalyticsProcessor:
 if __name__ == "__main__":
     logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
-    print("Running analytics")
+    logging.info("Running analytics")
 
     ap = AnalyticsProcessor()
     # print("Processing submissions")

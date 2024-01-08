@@ -26,7 +26,7 @@ class DatabaseConfig:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(DatabaseConfig, cls).__new__(cls)
-            logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+            # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
             cls._instance._setup_database()
 

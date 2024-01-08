@@ -30,6 +30,7 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Gets submissions from the database",
+            responses={429: {"model": ""}},
         )
         self.router.add_api_route(
             "/submission/{id}",
@@ -110,6 +111,8 @@ class SubmissionAPI:
 
         Returns:
             List[Submission]: Returns a list of submission. An empty list would  be returned if no results are found.
+
+            Headers: X-Limit - The Limit used
 
         """
         match sort_by:
@@ -233,8 +236,11 @@ class SubmissionAPI:
 
         with Session(self.engine) as session:
             if submission_id is not None:
-                statement = select(Submission).where(
-                    Submission.submission_id == (submission_id)
+                statement = (
+                    select(Submission)
+                    .where(Submission.submission_id == (submission_id))
+                    .offset(offset)
+                    .limit(limit)
                 )
                 results = session.exec(statement).all()
 

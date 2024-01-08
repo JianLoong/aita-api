@@ -13,7 +13,7 @@ from utils.analytics import AnalyticsProcessor
 
 class OpenAIProccessor:
     def __init__(self):
-        print("Creating")
+        logging.info("Creating")
         load_dotenv(find_dotenv())
         self.api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -28,6 +28,7 @@ class OpenAIProccessor:
 
     def process(self, submissions):
         for sub in submissions:
+            print("Creating OPEN AI Analysis for " + sub["title"])
             try:
                 self.open_ai_analysis.read_openai_inference(sub["id"])
                 logging.info("Analysis exist. Skipping")
@@ -36,7 +37,7 @@ class OpenAIProccessor:
                 # Doesnt exist so process
                 text = self.submission_api.read_submission(sub["id"])
                 question = """
-                Explain tones of the following narrative in a list format and actions to be taken: {selftext}
+                Based on the following context, am I the asshole? {selftext}
                 """.format(
                     selftext=text
                 )
@@ -58,7 +59,7 @@ class OpenAIProccessor:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+    # logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
 
     ap = AnalyticsProcessor()
     print("Processing submissions")
