@@ -14,8 +14,7 @@ from models.openai_analytics import OpenAIAnalysis
 
 
 class OpenAIProccessor:
-    def __init__(self):
-        logging.info("Creating")
+    def __init__(self, verbose: bool = False):
         load_dotenv(find_dotenv())
         self.api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -28,8 +27,10 @@ class OpenAIProccessor:
 
         self.client = AsyncOpenAI()
 
+        self._verbose: bool = verbose
+
     async def process(self):
-        print("Creating/Updating OPENAI Analysis")
+        self._verbose is True and print("Creating/Updating OPENAI Analysis")
 
         today = datetime.today()
         start = datetime(today.year, today.month, today.day) + timedelta(1)
@@ -43,12 +44,16 @@ class OpenAIProccessor:
             start_utc=yesterday_utc, end_utc=start_utc, limit=10000
         )
 
-        print(f"Number of OpenAI Submissions {len(submissions)}")
+        self._verbose is True and print(
+            f"Number of OpenAI Submissions {len(submissions)}"
+        )
 
         for sub in submissions:
             try:
                 self.open_ai_analysis.read_openai_inference(sub.id)
-                print(f"OpenAI analysis exist for {sub.title} skipping")
+                self._verbose is True and print(
+                    f"OpenAI analysis exist for {sub.title} skipping"
+                )
 
             except HTTPException:
                 # Doesnt exist so process
@@ -75,4 +80,4 @@ class OpenAIProccessor:
 
                 self.open_ai_analysis.create_opeai_analysis(entry)
 
-        print("OpenAI analysis completed.")
+        self._verbose is True and print("OpenAI analysis completed.")

@@ -3,12 +3,13 @@ from random import randrange
 from typing import List
 
 import sqlalchemy
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi.security import OAuth2PasswordBearer
 from fuzzywuzzy import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
-
+from models.message import Message
 from models.submission import Submission
 
 
@@ -21,6 +22,54 @@ class SubmissionAPI:
 
     # Routes for submission
     def _setup_submission_routes(self) -> None:
+        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+        self.router.add_api_route(
+            "/submissions",
+            self.create_submission,
+            methods=["POST"],
+            tags=["Submission"],
+            description="Creates a submission",
+            dependencies=[Depends(oauth2_scheme)],
+            responses={
+                status.HTTP_401_UNAUTHORIZED: {"model": Message},
+                status.HTTP_409_CONFLICT: {"model": Message},
+            },
+        )
+
+        self.router.add_api_route(
+            "/submissions/{id}",
+            self.update_submission,
+            methods=["PATCH"],
+            tags=["Submission"],
+            description="Creates a submission",
+            dependencies=[Depends(oauth2_scheme)],
+            responses={status.HTTP_401_UNAUTHORIZED: {"model": Message}},
+        )
+
+        self.router.add_api_route(
+            "/submissions/{id}",
+            self.upsert_submission,
+            methods=["PUT"],
+            tags=["Submission"],
+            description="Upserts a submission",
+            dependencies=[Depends(oauth2_scheme)],
+            responses={status.HTTP_401_UNAUTHORIZED: {"model": Message}},
+        )
+
+        self.router.add_api_route(
+            "/submissions/{id}",
+            self.delete_submission,
+            methods=["DELETE"],
+            tags=["Submission"],
+            description="Deletes a submission",
+            dependencies=[Depends(oauth2_scheme)],
+            responses={
+                status.HTTP_200_OK: {"model": Message},
+                status.HTTP_401_UNAUTHORIZED: {"model": Message},
+            },
+        )
+
         self.router.add_api_route(
             "/submissions",
             self.read_submissions,
@@ -154,7 +203,7 @@ class SubmissionAPI:
 
             return submissions
 
-    def create_submission(self, submission: Submission):
+    def create_submission(self, submission: Submission) -> Submission:
         with Session(self.engine) as session:
             session.add(submission)
             session.commit()
@@ -163,7 +212,7 @@ class SubmissionAPI:
 
     def update_submission_by_submission_id(
         self, submission_id: str, submission: Submission
-    ):
+    ) -> Submission:
         with Session(self.engine) as session:
             statement = select(Submission).where(
                 Submission.submission_id == (submission_id)
@@ -174,7 +223,9 @@ class SubmissionAPI:
             session.commit()
             session.refresh(result)
 
-    def update_submission(self, id: int, submission: Submission):
+            return result
+
+    def update_submission(self, id: int, submission: Submission) -> Submission:
         with Session(self.engine) as session:
             db_submission = session.get(Submission, id)
             if not db_submission:
@@ -214,8 +265,8 @@ class SubmissionAPI:
         self,
         response: Response = Response(),
         submission_id: str = None,
-        start_utc: str = Query(alias="startUTC", default=None),
-        end_utc: str = Query(alias="endUTC", default=None),
+        start_utc: float = Query(alias="startUTC", default=None),
+        end_utc: float = Query(alias="endUTC", default=None),
         sort_by: _SubmissionSortBy = Query(
             alias="sortBy", default=_SubmissionSortBy.id
         ),
@@ -411,3 +462,13 @@ class SubmissionAPI:
             submission = self.read_submission(rand_number)
 
             return submission
+
+    def delete_submission(self, id: int):
+        with Session(self.engine) as session:
+            submission = session.get(Submission, id)
+            if not submission:
+                raise HTTPException(status_code=404, detail="Submission not found")
+            session.delete(submission)
+            session.commit()
+
+            return {"ok": True}

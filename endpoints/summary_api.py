@@ -1,10 +1,11 @@
 from enum import Enum
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from fastapi.security import OAuth2PasswordBearer
 import sqlalchemy
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, asc, desc, select
+from models.message import Message
 
 from models.summary import Summary
 
@@ -38,6 +39,7 @@ class SummaryAPI:
             self.create_summary,
             methods=["POST"],
             tags=["Summary"],
+            status_code=status.HTTP_201_CREATED,
             dependencies=[Depends(oauth2_scheme)],
         )
 
@@ -46,6 +48,7 @@ class SummaryAPI:
             self.upsert_summary,
             methods=["PUT"],
             tags=["Summary"],
+            responses={status.HTTP_201_CREATED: {"model": Message}},
             dependencies=[Depends(oauth2_scheme)],
         )
 
@@ -65,7 +68,7 @@ class SummaryAPI:
             dependencies=[Depends(oauth2_scheme)],
         )
 
-    def create_summary(self, summary: Summary):
+    def create_summary(self, summary: Summary) -> Summary:
         with Session(self.engine) as session:
             session.add(summary)
             session.commit()
@@ -123,12 +126,6 @@ class SummaryAPI:
         Creates a summary in the databse if does not already exists,
         else it is used to update the existing one
 
-        Args:
-            id:
-                The summary id
-            summary:
-                The Summary
-
         """
         with Session(self.engine) as session:
             db_summary = session.get(Summary, id)
@@ -146,7 +143,7 @@ class SummaryAPI:
 
             return db_summary
 
-    def update_summary(self, id: int, summary: Summary):
+    def update_summary(self, id: int, summary: Summary) -> Summary:
         with Session(self.engine) as session:
             db_summary = session.get(Summary, id)
             if not db_summary:

@@ -1,6 +1,5 @@
 # Perform sentiment analysis and then create JSON files that will be used for application
 import calendar
-import logging
 import re
 from datetime import datetime, timedelta
 from threading import Thread
@@ -36,21 +35,19 @@ class AnalyticsProcessor:
             cls._instance = super(AnalyticsProcessor, cls).__new__(cls)
             cls._instance._configure_processor()
             cls._instance._verbose = verbose
-            cls._instance.function_thread = Thread()
+            cls._instance._function_thread = Thread()
 
         return cls._instance
 
     async def process(self):
-        if self.function_thread.is_alive():
+        if self._function_thread.is_alive():
             return
 
         try:
-            self.function_thread = Thread(target=self._process)
-
-            self.function_thread.start()
+            self._function_thread = Thread(target=self._process)
+            self._function_thread.start()
         except RuntimeError as e:
-            if self._verbose is True:
-                print(e)
+            self._verbose is True and print(e)
 
     def _process(self):
         afinn = Afinn()
@@ -62,11 +59,10 @@ class AnalyticsProcessor:
 
             replies = ""
 
-            if self._verbose is True:
-                print(
-                    f"Creating analysis for {str(submission['id'])} {submission['title']}",
-                    flush=True,
-                )
+            self._verbose is True and print(
+                f"Creating analysis for {str(submission['id'])} {submission['title']}",
+                flush=True,
+            )
 
             for reply in submission["replies"]:
                 replies = replies + reply
@@ -107,11 +103,10 @@ class AnalyticsProcessor:
             self.summary_api.upsert_summary(id, summary)
             self.breakdown_api.upsert_breakdown(id, breakdown)
 
-        if self._verbose is True:
-            print(
-                f"Processing of {len(submissions)} analytics completed",
-                flush=True,
-            )
+        self._verbose is True and print(
+            f"Processing of {len(submissions)} analytics completed",
+            flush=True,
+        )
 
     def _get_submissions(self):
         today = datetime.today()
@@ -128,7 +123,7 @@ class AnalyticsProcessor:
 
         submissions_json = []
 
-        logging.info("Total submissions " + str(len(submissions)))
+        self._verbose is True and print(f"Total submissions is {str(len(submissions))}")
 
         for submission in submissions:
             comments = self.comment_api.search_comments(

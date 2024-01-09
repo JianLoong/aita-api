@@ -14,6 +14,7 @@ from models.submission import Submission
 
 class Crawler:
     _instance = None
+    _verbose = False
 
     def _configure_agent(self) -> None:
         self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
@@ -31,14 +32,15 @@ class Crawler:
         if self.subreddit_name is None:
             return False
 
-    def __new__(cls):
+    def __new__(cls, verbose: bool = False):
         if cls._instance is None:
             cls._instance = super(Crawler, cls).__new__(cls)
             cls._instance._configure_agent()
+            cls._instance._verbose = verbose
 
         return cls._instance
 
-    async def crawl(self) -> None:
+    async def process(self) -> None:
         async with asyncpraw.Reddit(
             client_id=self.client_id,
             client_secret=self.client_secret,
@@ -53,7 +55,7 @@ class Crawler:
             submission_api = SubmissionAPI(engine)
             comment_api = CommentAPI(engine)
 
-            print("Creating/Updating submission")
+            self._verbose is True and print("Creating/Updating submission")
 
             subreddit = await reddit.subreddit(self.subreddit_name, fetch=True)
 
@@ -81,19 +83,18 @@ class Crawler:
                     )
 
                     if len(results) == 0:
-                        print(f"Creating submission for {custom_submission.title}")
+                        self._verbose is True and print(
+                            f"Creating submission for {custom_submission.title}"
+                        )
                         submission_api.create_submission(custom_submission)
                     else:
                         custom_submission.id = results[0].id
-                        print(
+                        self._verbose is True and print(
                             f"Updating submission for {results[0].id} {custom_submission.title}"
                         )
                         submission_api.update_submission(
                             results[0].id, custom_submission
                         )
-
-                    # submission.comments.replace_more(limit=0)
-                    # comments = await submission.comments.list()
 
                     comments = await submission.comments()
                     await comments.replace_more(limit=0)
@@ -119,4 +120,4 @@ class Crawler:
                             comment_api.create_comment(custom_comment)
 
                 except Exception as error:
-                    print(error)
+                    self._verbose is True and print(error)

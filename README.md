@@ -4,8 +4,7 @@ This repository is a complete rewrite of reddit-store using FastAPI
 
 ## Swagger Documentation
 
-Swagger documentation can be found at http://localhost:8000/docs
-
+Swagger documentation can be found at https://vmi1592589.contaboserver.net/docs
 
 ## Run instructions
 
