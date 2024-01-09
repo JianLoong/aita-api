@@ -18,6 +18,7 @@ from utils.analytics import AnalyticsProcessor
 from utils.crawler import Crawler
 from utils.process_openai import OpenAIProccessor
 
+
 app = FastAPI(
     title="AITA API",
     description="API For AITA Subreddit. All mutation end points are disabled by default.",
@@ -29,6 +30,7 @@ app = FastAPI(
         "name": "Apache 2.0",
         "identifier": "MIT",
     },
+    swagger_ui_parameters={"operationsSorter": "method"},
 )
 
 # Configure origins for CORS
@@ -49,7 +51,7 @@ app.add_middleware(
 # app.add_middleware(PyInstrumentProfilerMiddleware)
 
 # Limiters
-limiter = Limiter(key_func=get_remote_address, default_limits=["20/minute"])
+limiter = Limiter(key_func=get_remote_address, default_limits=["10/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -65,7 +67,7 @@ openai_analysis_api = OpenAIInferenceAPI(engine)
 comment_api = CommentAPI(engine)
 summary_api = SummaryAPI(engine)
 
-
+# Add routers
 app.include_router(prefix="/api/v2", router=health_api.router)
 app.include_router(prefix="/api/v2", router=submission_api.router)
 app.include_router(prefix="/api/v2", router=comment_api.router)
@@ -88,9 +90,9 @@ async def update_submissions() -> None:
     crawler = Crawler()
     await crawler.crawl()
 
-    ap = AnalyticsProcessor()
+    ap = AnalyticsProcessor(verbose=True)
     print("Processing submissions")
-    ap.process()
+    await ap.process()
 
     oap = OpenAIProccessor()
     await oap.process()

@@ -1,14 +1,15 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException
+from enum import Enum
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session
+import sqlalchemy
+from sqlmodel import Session, asc, desc, select
 
 from models.summary import Summary
 
 
 class SummaryAPI:
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
     def __init__(self, engine):
         self.engine = engine
         self.router = APIRouter()
@@ -16,11 +17,52 @@ class SummaryAPI:
         self._setup_summary_routes()
 
     def _setup_summary_routes(self) -> None:
+        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
         self.router.add_api_route(
             "/summary/{id}",
             self.read_summary,
             methods=["GET"],
             tags=["Summary"],
+        )
+
+        self.router.add_api_route(
+            "/summaries/",
+            self.read_summaries,
+            methods=["GET"],
+            tags=["Summary"],
+        )
+
+        self.router.add_api_route(
+            "/summaries",
+            self.create_summary,
+            methods=["POST"],
+            tags=["Summary"],
+            dependencies=[Depends(oauth2_scheme)],
+        )
+
+        self.router.add_api_route(
+            "/summary/{id}",
+            self.upsert_summary,
+            methods=["PUT"],
+            tags=["Summary"],
+            dependencies=[Depends(oauth2_scheme)],
+        )
+
+        self.router.add_api_route(
+            "/summary/{id}",
+            self.update_summary,
+            methods=["PATCH"],
+            tags=["Summary"],
+            dependencies=[Depends(oauth2_scheme)],
+        )
+
+        self.router.add_api_route(
+            "/summary/{id}",
+            self.delete_summary,
+            methods=["DELETE"],
+            tags=["Summary"],
+            dependencies=[Depends(oauth2_scheme)],
         )
 
     def create_summary(self, summary: Summary):
@@ -39,6 +81,40 @@ class SummaryAPI:
             if not summary:
                 raise HTTPException(status_code=404, detail="Summary not found")
             return summary
+
+    class _OrderBy(str, Enum):
+        asc = "asc"
+        desc = "desc"
+
+    def read_summaries(
+        self,
+        response: Response = Response(),
+        offset: int = Query(default=0, le=100),
+        limit: int = Query(default=10, le=100),
+        order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
+    ) -> List[Summary]:
+        match order_by:
+            case "desc":
+                order = desc
+            case "asc":
+                order = asc
+            case _:
+                order = desc
+
+        with Session(self.engine) as session:
+            summary_count = session.exec(
+                select(sqlalchemy.func.count(Summary.id))
+            ).one()
+
+            submissions = session.exec(
+                select(Summary).offset(offset).limit(limit).order_by(order(Summary.id))
+            ).all()
+
+            response.headers["X-Limit"] = str(limit)
+            response.headers["X-Offset"] = str(offset)
+            response.headers["X-Count"] = str(summary_count)
+
+        return submissions
 
     def upsert_summary(self, id: int, summary: Summary) -> Summary:
         """
@@ -82,3 +158,13 @@ class SummaryAPI:
             session.commit()
             session.refresh(db_summary)
             return db_summary
+
+    def delete_summary(self, id: int):
+        with Session(self.engine) as session:
+            summary = session.get(Summary, id)
+            if not summary:
+                raise HTTPException(status_code=404, detail="Summary not found")
+            session.delete(summary)
+            session.commit()
+
+            return {"ok": True}

@@ -1,6 +1,7 @@
 import logging
-from fastapi import APIRouter, HTTPException
 
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import Engine
 from sqlmodel import Session
 
@@ -15,6 +16,8 @@ class OpenAIInferenceAPI:
         self._setup_openai_analysis_routes()
 
     def _setup_openai_analysis_routes(self) -> None:
+        oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
         self.router.add_api_route(
             "/openai-analysis/{id}",
             self.read_openai_inference,
@@ -23,7 +26,23 @@ class OpenAIInferenceAPI:
             description="Obtains OpenAI GPT3.5 Turbo Inference",
         )
 
-    def create_opeai_analysis(self, open_ai_analysis: OpenAIAnalysis):
+        self.router.add_api_route(
+            "/openai-analysis/{id}",
+            self.read_openai_inference,
+            methods=["POST"],
+            tags=["OpenAI"],
+            dependencies=[Depends(oauth2_scheme)],
+        )
+
+        self.router.add_api_route(
+            "/openai-analysis/{id}",
+            self.update_open_ai_analysis,
+            methods=["PATCH"],
+            tags=["OpenAI"],
+            dependencies=[Depends(oauth2_scheme)],
+        )
+
+    def create_opeai_analysis(self, open_ai_analysis: OpenAIAnalysis) -> OpenAIAnalysis:
         with Session(self.engine) as session:
             logging.info("Creating OPENAI for " + str(open_ai_analysis.id))
             session.add(open_ai_analysis)
@@ -40,12 +59,14 @@ class OpenAIInferenceAPI:
                 )
             return open_ai_inference
 
-    def update_submission(self, id: int, submission: OpenAIAnalysis):
+    def update_open_ai_analysis(
+        self, id: int, open_ai_analysis: OpenAIAnalysis
+    ) -> OpenAIAnalysis:
         with Session(self.engine) as session:
             db_openai_inference = session.get(OpenAIAnalysis, id)
             if not db_openai_inference:
                 raise HTTPException(status_code=404, detail="Submission not found")
-            submission_data = submission.model_dump(exclude_unset=True)
+            submission_data = open_ai_analysis.model_dump(exclude_unset=True)
             for key, value in submission_data.items():
                 setattr(db_openai_inference, key, value)
             session.add(db_openai_inference)

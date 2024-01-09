@@ -3,6 +3,7 @@ import calendar
 import logging
 import re
 from datetime import datetime, timedelta
+from threading import Thread
 
 from afinn import Afinn
 from nltk.corpus import stopwords
@@ -21,6 +22,7 @@ from models.summary import Summary
 
 class AnalyticsProcessor:
     _instance = None
+    _verbose = False
 
     def _configure_processor(self):
         self.engine = DatabaseConfig().get_engine()
@@ -29,26 +31,42 @@ class AnalyticsProcessor:
         self.breakdown_api = BreakdownAPI(self.engine)
         self.comment_api = CommentAPI(self.engine)
 
-    def __new__(cls):
+    def __new__(cls, verbose: bool = False):
         if cls._instance is None:
             cls._instance = super(AnalyticsProcessor, cls).__new__(cls)
             cls._instance._configure_processor()
+            cls._instance._verbose = verbose
+            cls._instance.function_thread = Thread()
 
         return cls._instance
 
-    def process(self):
+    async def process(self):
+        if self.function_thread.is_alive():
+            return
+
+        try:
+            self.function_thread = Thread(target=self._process)
+
+            self.function_thread.start()
+        except RuntimeError as e:
+            if self._verbose is True:
+                print(e)
+
+    def _process(self):
         afinn = Afinn()
 
-        submissions = self.get_submissions()
+        submissions = self._get_submissions()
 
         for submission in submissions:
             result = {"id": 0, "afinn": 0, "emotion": 0, "word_freq": 0, "counts": 0}
 
             replies = ""
 
-            print(
-                f"Creating analysis for {str(submission['id'])} {submission['title']}"
-            )
+            if self._verbose is True:
+                print(
+                    f"Creating analysis for {str(submission['id'])} {submission['title']}",
+                    flush=True,
+                )
 
             for reply in submission["replies"]:
                 replies = replies + reply
@@ -56,7 +74,7 @@ class AnalyticsProcessor:
             result["id"] = submission["id"]
             result["afinn"] = afinn.score(replies)
             result["emotion"] = NRCLex(replies).raw_emotion_scores
-            frequencies = self.word_frequency(replies)
+            frequencies = self._word_frequency(replies)
             result["word_freq"] = frequencies[0]
             result["no_of_replies"] = len(submission["replies"])
             result["counts"] = frequencies[1]
@@ -89,7 +107,13 @@ class AnalyticsProcessor:
             self.summary_api.upsert_summary(id, summary)
             self.breakdown_api.upsert_breakdown(id, breakdown)
 
-    def get_submissions(self):
+        if self._verbose is True:
+            print(
+                f"Processing of {len(submissions)} analytics completed",
+                flush=True,
+            )
+
+    def _get_submissions(self):
         today = datetime.today()
         start = datetime(today.year, today.month, today.day) + timedelta(1)
         yesterday = start - timedelta(2)
@@ -110,7 +134,7 @@ class AnalyticsProcessor:
             comments = self.comment_api.search_comments(
                 submission_id=submission.submission_id
             )
-            # logging.info("Creating submission for " + submission.title)
+
             submission_dict = submission.__dict__
 
             replies = []
@@ -122,11 +146,11 @@ class AnalyticsProcessor:
 
         return submissions_json
 
-    def word_frequency(self, text):
+    def _word_frequency(self, text):
         text = text.lower().replace(".", " ")
         text = re.sub("\\W+", " ", text)
         text = word_tokenize(text)
-        text = self.remove_stop_words(text)
+        text = self._remove_stop_words(text)
 
         fdist = FreqDist(text)  # .most_common(10)
 
@@ -158,7 +182,7 @@ class AnalyticsProcessor:
 
         return [dict(fdist.most_common(30)), counts]
 
-    def remove_stop_words(self, word_tokens):
+    def _remove_stop_words(self, word_tokens):
         stop_words = set(stopwords.words("english"))
 
         filtered_sentence = [w for w in word_tokens if not w.lower() in stop_words]

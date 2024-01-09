@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from dotenv import find_dotenv, load_dotenv
 from fastapi import HTTPException
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI
 
 from endpoints.database_config import DatabaseConfig
 from endpoints.openai_inference_api import OpenAIInferenceAPI
@@ -43,17 +43,19 @@ class OpenAIProccessor:
             start_utc=yesterday_utc, end_utc=start_utc, limit=10000
         )
 
+        print(f"Number of OpenAI Submissions {len(submissions)}")
+
         for sub in submissions:
             try:
                 self.open_ai_analysis.read_openai_inference(sub.id)
-                print("OpenAI analysis exist for " + sub.title + " skipping")
+                print(f"OpenAI analysis exist for {sub.title} skipping")
 
             except HTTPException:
                 # Doesnt exist so process
                 print(f"Creating OpenAI Analysis for {sub.id} {sub.title}")
                 text = self.submission_api.read_submission(sub.id)
                 question = """
-                Based on the following context, am I the asshole? {selftext}
+                Based on the following context, is the author an asshole? {selftext}
                 """.format(
                     selftext=text
                 )
