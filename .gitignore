@@ -164,3 +164,4 @@ database
 
 # New Relic
 newrelic.ini
+*pem

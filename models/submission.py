@@ -20,4 +20,4 @@ class Submission(SQLModel, table=True):
     selftext: str
     created_utc: float
     permalink: str
-    score: int = Field(ge=0, title="No assholes here")
+    score: int = Field(title="The score")
