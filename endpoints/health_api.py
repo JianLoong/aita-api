@@ -1,9 +1,10 @@
 import sqlalchemy
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 from sqlmodel import Session, select
 
 from models.comment import Comment
 from models.health import Health
+from models.message import Message
 from models.openai_analytics import OpenAIAnalysis
 from models.submission import Submission
 from models.summary import Summary
@@ -25,6 +26,20 @@ class HealthAPI:
             tags=["Health"],
             description="Health Check for the AITA API",
         )
+
+        self.router.add_api_route(
+            "/ping",
+            self.read_ping,
+            methods=["GET"],
+            tags=["Health"],
+            description="Ping Check for the AITA API",
+            responses={status.HTTP_200_OK: {"model": Message}},
+        )
+
+    def read_ping(self) -> Message:
+        message = Message()
+        message.details = "Pong"
+        return message
 
     def read_health(self) -> Health:
         with Session(self.engine) as session:

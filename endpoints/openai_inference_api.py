@@ -29,10 +29,14 @@ class OpenAIInferenceAPI:
 
         self.router.add_api_route(
             "/openai-analysis/{id}",
-            self.read_openai_inference,
+            self.create_opeai_analysis,
             methods=["POST"],
             tags=["OpenAI"],
-            dependencies=[Depends(oauth2_scheme)],
+            # dependencies=[Depends(oauth2_scheme)],
+            responses={
+                status.HTTP_401_UNAUTHORIZED: {"model": Message},
+                status.HTTP_404_NOT_FOUND: {"model": Message},
+            },
         )
 
         self.router.add_api_route(
@@ -67,7 +71,6 @@ class OpenAIInferenceAPI:
 
     def create_opeai_analysis(self, open_ai_analysis: OpenAIAnalysis) -> OpenAIAnalysis:
         with Session(self.engine) as session:
-            logging.info("Creating OPENAI for " + str(open_ai_analysis.id))
             session.add(open_ai_analysis)
             session.commit()
             session.refresh(open_ai_analysis)
@@ -105,7 +108,7 @@ class OpenAIInferenceAPI:
             session.delete(db_openai_inference)
             session.commit()
 
-            return {"ok": True}
+            return {"detail": "Ok"}
 
     def upsert_open_ai_analysis(
         self, id: int, open_ai_analysis: OpenAIAnalysis

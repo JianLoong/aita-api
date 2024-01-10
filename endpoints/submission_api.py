@@ -5,7 +5,7 @@ from typing import List
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
-from fuzzywuzzy import process
+from thefuzz import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
@@ -42,7 +42,7 @@ class SubmissionAPI:
             self.update_submission,
             methods=["PATCH"],
             tags=["Submission"],
-            description="Creates a submission",
+            description="Updates a submission",
             dependencies=[Depends(oauth2_scheme)],
             responses={status.HTTP_401_UNAUTHORIZED: {"model": Message}},
         )
@@ -76,6 +76,7 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Gets submissions from the database",
+            responses={status.HTTP_404_NOT_FOUND: {"model": Message}},
         )
         self.router.add_api_route(
             "/submission/{id}",
@@ -83,6 +84,7 @@ class SubmissionAPI:
             methods=["GET"],
             tags=["Submission"],
             description="Gets submission from database based on id",
+            responses={status.HTTP_404_NOT_FOUND: {"model": Message}},
         )
 
         self.router.add_api_route(
@@ -241,25 +243,31 @@ class SubmissionAPI:
     def fuzzy_search(
         self,
         query: str = Query(default="query", max_length=50),
-        limit: int = Query(default=10, le=100),
+        limit: int = Query(default=20, le=100),
     ) -> List[Submission]:
         if len(query) == 0:
             return []
 
         with Session(self.engine) as session:
-            submissions = session.exec(select(Submission)).all()
+            submissions = session.exec(select(Submission.id, Submission.title)).all()
+
             choices = [
-                {"id": submission.id, "title": submission.title}
+                str(submission.id) + " " + submission.title
                 for submission in submissions
             ]
 
-            results = process.extract(query, choices, limit=limit)
+            results = process.extract(
+                query,
+                choices,
+                limit=limit,
+            )
 
-            ids = [result[0]["id"] for result in results]
+            ids = [result[0].split(" ")[0] for result in results]
 
             matched_submissions = [self.read_submission(id) for id in ids]
 
             return matched_submissions
+            # return []
 
     def search_submission(
         self,

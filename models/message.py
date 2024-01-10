@@ -1,5 +1,5 @@
-from pydantic import BaseModel
+from sqlmodel import Field, SQLModel
 
 
-class Message(BaseModel):
-    status: str = "Message"
+class Message(SQLModel, table=False):
+    details: str = Field(default="Message")
