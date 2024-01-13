@@ -3,7 +3,7 @@ from random import randrange
 from typing import List
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from thefuzz import process
 from sqlalchemy import Engine
@@ -149,8 +149,7 @@ class SubmissionAPI:
 
     def read_submissions(
         self,
-        request: Request,
-        response: Response,
+        response: Response = Response(),
         offset: int = Query(default=0, le=100),
         limit: int = Query(default=10, le=100),
         sort_by: _SubmissionSortBy = Query(
@@ -325,8 +324,16 @@ class SubmissionAPI:
                     .limit(limit)
                 )
                 results = session.exec(statement).all()
+
                 return results
-            return []
+
+            # Does normal search if no specified
+
+            results = session.exec(
+                select(Submission).offset(offset).limit(limit).order_by(order(sort))
+            ).all()
+
+            return results
 
     class _MonthSelection(str, Enum):
         January = "January"
@@ -393,31 +400,30 @@ class SubmissionAPI:
         with Session(self.engine) as session:
             if selectedMonth == "allMonths":
                 statement = """
-                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score FROM (
                     SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
-                    strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
-                    MAX({type}) AS {type}
-                    FROM submission s
+                    EXTRACT(YEAR FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) AS sub_year, MAX({type}) AS {type}
+                    FROM SUBMISSION s
                     INNER JOIN breakdown ON s.id = breakdown.id
-                    WHERE sub_year = "{year}"
-                    GROUP BY sub_year
-                    ORDER BY sub_year) s
+                    WHERE  EXTRACT(YEAR FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) = {year}
+                    GROUP BY s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score, sub_year
+                    ORDER BY {type} DESC LIMIT 1;
                 """.format(
                     year=year, type=type
                 )
             else:
                 statement = """
-                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score FROM (
                     SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
-                    strftime('%m',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_month,
-                    strftime('%Y',DATETIME(ROUND(created_utc), 'unixepoch')) AS sub_year,
+                    EXTRACT(MONTH FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) AS sub_month,
+                    EXTRACT(YEAR FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) AS sub_year,
                     MAX({type}) AS {type}
-                    FROM submission s
+                    FROM SUBMISSION s
                     INNER JOIN breakdown ON s.id = breakdown.id
-                    WHERE sub_year = "{year}"
-                    AND sub_month = "{month}"
-                    GROUP BY sub_month, sub_year
-                    ORDER BY sub_month, sub_year) s
+                    WHERE  EXTRACT(YEAR FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) = {year}
+                    AND
+                    EXTRACT(MONTH FROM (to_timestamp(created_utc) AT TIME ZONE 'UTC')) = {month}
+                    GROUP BY s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink,
+                    s.score, sub_month, sub_year
+                    ORDER BY {type} DESC LIMIT 1;
                 """.format(
                     year=year, month=selectedMonth, type=type
                 )

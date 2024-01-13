@@ -19,7 +19,7 @@ class Crawler:
     def _configure_agent(self) -> None:
         self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
 
-        load_dotenv(find_dotenv())
+        load_dotenv(find_dotenv(), override=True)
 
         self.client_id = os.environ.get("REDDIT_CLIENT_ID")
         self.client_secret = os.environ.get("REDDIT_CLIENT_SECRET")

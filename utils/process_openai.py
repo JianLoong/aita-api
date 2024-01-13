@@ -14,7 +14,7 @@ from models.openai_analytics import OpenAIAnalysis
 
 class OpenAIProccessor:
     def __init__(self, verbose: bool = False):
-        load_dotenv(find_dotenv())
+        load_dotenv(find_dotenv(), override=True)
         self.api_key = os.environ.get("OPENAI_API_KEY")
 
         database_config = DatabaseConfig()
