@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 from random import randrange
 from typing import List
@@ -5,7 +6,6 @@ from typing import List
 import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer
-from thefuzz import process
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
@@ -248,26 +248,35 @@ class SubmissionAPI:
         if len(query) == 0:
             return []
 
-        with Session(self.engine) as session:
-            submissions = session.exec(select(Submission.id, Submission.title)).all()
+        cleaned_query = re.sub("\\W+", "", query)
 
-            choices = [
-                str(submission.id) + " " + submission.title
-                for submission in submissions
-            ]
+        try:
+            with Session(self.engine) as session:
+                statement = """
+                    SELECT id FROM submission_fts WHERE submission_fts MATCH '{query}' ORDER BY RANK LIMIT {limit}
+                """.format(
+                    query=cleaned_query, limit=limit
+                )
 
-            results = process.extract(
-                query,
-                choices,
-                limit=limit,
-            )
+                sqlText = sqlalchemy.sql.text(statement)
 
-            ids = [result[0].split(" ")[0] for result in results]
+                resultSet = session.exec(sqlText).all()
 
-            matched_submissions = [self.read_submission(id) for id in ids]
+                results = []
 
-            return matched_submissions
-            # return []
+                for record in resultSet:
+                    res = dict()
+                    res["id"] = record[0]
+                    results.append(res)
+
+                ids = [result["id"] for result in results]
+
+                matched_submissions = [self.read_submission(id) for id in ids]
+
+                return matched_submissions
+
+        except Exception:
+            return []
 
     def search_submission(
         self,
