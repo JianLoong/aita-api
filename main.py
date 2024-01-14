@@ -15,6 +15,7 @@ from endpoints.health_api import HealthAPI
 from endpoints.openai_inference_api import OpenAIInferenceAPI
 from endpoints.submission_api import SubmissionAPI
 from endpoints.summary_api import SummaryAPI
+from utils.fts_processor import FTSProcessor
 from models.rate_limit import RateLimit
 from utils.analytics import AnalyticsProcessor
 from utils.crawler import Crawler
@@ -46,9 +47,10 @@ class API:
         self.setup_routes()
         self.setup_limiter()
         self.setup_cors()
-        self.setup_startup_event()
 
-        update is True and self.setup_process_time()
+        self.setup_process_time()
+
+        update is True and self.setup_startup_event()
 
     def setup_routes(self) -> None:
         # Database configuration
@@ -125,6 +127,10 @@ class API:
             # oap = OpenAIProccessor(verbose=False)
             # await oap.process()
 
+            fts = FTSProcessor()
+
+            fts.process()
+
         self.app.add_event_handler("startup", update_submissions)
 
     def setup_process_time(self) -> None:
@@ -138,6 +144,6 @@ class API:
 
 
 if __name__ == "__main__":
-    api = API()
+    api = API(update=True)
 
     uvicorn.run(api.app, host="0.0.0.0", port=8000, env_file="./env")

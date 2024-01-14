@@ -247,26 +247,35 @@ class SubmissionAPI:
         if len(query) == 0:
             return []
 
-        with Session(self.engine) as session:
-            submissions = session.exec(select(Submission.id, Submission.title)).all()
+        try:
+            with Session(self.engine) as session:
+                statement = """
+                    SELECT id FROM submission_fts WHERE submission_fts MATCH '{query}' ORDER BY RANK LIMIT {limit}
+                """.format(
+                    query=query, limit=limit
+                )
 
-            choices = [
-                str(submission.id) + " " + submission.title
-                for submission in submissions
-            ]
+                sqlText = sqlalchemy.sql.text(statement)
 
-            results = process.extract(
-                query,
-                choices,
-                limit=limit,
-            )
+                resultSet = session.exec(sqlText).all()
 
-            ids = [result[0].split(" ")[0] for result in results]
+                results = []
 
-            matched_submissions = [self.read_submission(id) for id in ids]
+                for record in resultSet:
+                    res = dict()
+                    res["id"] = record[0]
+                    results.append(res)
 
-            return matched_submissions
-            # return []
+                print(results)
+
+                ids = [result["id"] for result in results]
+
+                matched_submissions = [self.read_submission(id) for id in ids]
+
+                return matched_submissions
+
+        except Exception:
+            return []
 
     def search_submission(
         self,
