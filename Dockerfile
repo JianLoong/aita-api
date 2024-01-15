@@ -9,7 +9,7 @@ FROM python:3.10-slim as base
 RUN apt-get update && apt-get install build-essential -y
 
 # Prevents Python from writing pyc files.
-# ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Keeps Python from buffering stdout and stderr to avoid situations where
 # the application crashes without emitting any logs due to buffering.
@@ -59,6 +59,6 @@ COPY . .
 EXPOSE 8000
 
 # Run the application.
-CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 4 --root-path /aita
+CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 1 --root-path /aita
 
 # CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 4 --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem --root-path /aita

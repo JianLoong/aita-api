@@ -17,6 +17,7 @@ from endpoints.summary_api import SummaryAPI
 from models.rate_limit import RateLimit
 from utils.analytics import AnalyticsProcessor
 from utils.crawler import Crawler
+from utils.fts_processor import FTSProcessor
 from utils.process_openai import OpenAIProccessor
 
 app = FastAPI(
@@ -109,6 +110,10 @@ def setup_startup_event() -> None:
 
         oap = OpenAIProccessor(verbose=False)
         await oap.process()
+
+        fts = FTSProcessor()
+
+        fts.process()
 
     app.add_event_handler("startup", update_submissions)
 
