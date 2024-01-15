@@ -126,5 +126,5 @@ def setup_process_time() -> None:
 setup_routes()
 setup_limiter()
 setup_cors()
-setup_startup_event()
+# setup_startup_event()
 setup_process_time()
