@@ -59,6 +59,6 @@ COPY . .
 EXPOSE 8000
 
 # Run the application.
-CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 1 --root-path /aita
+CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 8 --root-path /aita
 
 # CMD NEW_RELIC_CONFIG_FILE=newrelic.ini newrelic-admin run-program uvicorn main:app --port 8000 --host 0.0.0.0 --workers 4 --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem --root-path /aita

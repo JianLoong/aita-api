@@ -1,6 +1,7 @@
 # Perform sentiment analysis and then create JSON files that will be used for application
 import calendar
 import re
+import sqlalchemy
 from datetime import datetime, timedelta
 from threading import Thread
 
@@ -100,8 +101,12 @@ class AnalyticsProcessor:
 
             id = result["id"]
 
-            self.summary_api.upsert_summary(id, summary)
-            self.breakdown_api.upsert_breakdown(id, breakdown)
+            try:
+
+                self.summary_api.upsert_summary(id, summary)
+                self.breakdown_api.upsert_breakdown(id, breakdown)
+            except sqlalchemy.exc.OperationalError as e:
+                continue
 
         self._verbose is True and print(
             f"Processing of {len(submissions)} analytics completed",

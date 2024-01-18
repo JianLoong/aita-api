@@ -165,3 +165,4 @@ database
 # New Relic
 newrelic.ini
 *pem
+nltk_data
