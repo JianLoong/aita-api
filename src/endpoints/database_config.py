@@ -10,7 +10,7 @@ class DatabaseConfig:
 
     def _setup_database(self):
         load_dotenv(find_dotenv())
-        sqlite_file_name = os.environ.get("DATABASE_NAME")
+        sqlite_file_name = os.environ.get("DATABASE_NAME", "sqlite.db")
         sqlite_url = f"sqlite:///database//{sqlite_file_name}"
 
         self.engine = create_engine(sqlite_url, echo=False)

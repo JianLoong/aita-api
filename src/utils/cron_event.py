@@ -11,13 +11,13 @@ async def update_submissions() -> None:
 
     ap = AnalyticsProcessor(verbose=True)
     print("Processing submissions")
-    ap.process()
+    await ap.process()
 
     # oap = OpenAIProccessor(verbose=False)
     # await oap.process()
 
-    fts = FTSProcessor()
-    fts.process()
+    # fts = FTSProcessor()
+    # fts.process()
 
 
 if __name__ == "__main__":
