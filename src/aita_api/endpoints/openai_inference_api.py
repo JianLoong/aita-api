@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import Engine
 from sqlmodel import Session
-from models.message import Message
+from aita_api.models.message import Message
 
-from models.openai_analytics import OpenAIAnalysis
+from aita_api.models.openai_analytics import OpenAIAnalysis
 
 
 class OpenAIInferenceAPI:

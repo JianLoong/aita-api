@@ -6,10 +6,10 @@ from dotenv import find_dotenv, load_dotenv
 from fastapi import HTTPException
 from openai import AsyncOpenAI
 
-from endpoints.database_config import DatabaseConfig
-from endpoints.openai_inference_api import OpenAIInferenceAPI
-from endpoints.submission_api import SubmissionAPI
-from models.openai_analytics import OpenAIAnalysis
+from aita_api.endpoints.database_config import DatabaseConfig
+from aita_api.endpoints.openai_inference_api import OpenAIInferenceAPI
+from aita_api.endpoints.submission_api import SubmissionAPI
+from aita_api.models.openai_analytics import OpenAIAnalysis
 
 
 class OpenAIProccessor:

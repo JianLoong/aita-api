@@ -8,17 +8,17 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-from endpoints.comment_api import CommentAPI
-from endpoints.database_config import DatabaseConfig
-from endpoints.health_api import HealthAPI
-from endpoints.openai_inference_api import OpenAIInferenceAPI
-from endpoints.submission_api import SubmissionAPI
-from endpoints.summary_api import SummaryAPI
-from models.rate_limit import RateLimit
-from utils.analytics import AnalyticsProcessor
-from utils.crawler import Crawler
-from utils.fts_processor import FTSProcessor
-from utils.process_openai import OpenAIProccessor
+from aita_api.endpoints.comment_api import CommentAPI
+from aita_api.endpoints.database_config import DatabaseConfig
+from aita_api.endpoints.health_api import HealthAPI
+from aita_api.endpoints.openai_inference_api import OpenAIInferenceAPI
+from aita_api.endpoints.submission_api import SubmissionAPI
+from aita_api.endpoints.summary_api import SummaryAPI
+from aita_api.models.rate_limit import RateLimit
+from aita_api.utils.analytics import AnalyticsProcessor
+from aita_api.utils.crawler import Crawler
+from aita_api.utils.fts_processor import FTSProcessor
+from aita_api.utils.process_openai import OpenAIProccessor
 
 app = FastAPI(
     title="AITA API",
@@ -133,3 +133,8 @@ setup_limiter()
 setup_cors()
 # setup_startup_event()
 setup_process_time()
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

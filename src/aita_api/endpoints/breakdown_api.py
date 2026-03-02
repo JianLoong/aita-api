@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import Engine
 from sqlmodel import Session
 
-from models.breakdown import Breakdown
-from models.message import Message
+from aita_api.models.breakdown import Breakdown
+from aita_api.models.message import Message
 
 
 class BreakdownAPI:

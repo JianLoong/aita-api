@@ -5,11 +5,11 @@ from asyncpraw.models import MoreComments
 from dotenv import find_dotenv, load_dotenv
 from fastapi import Response
 
-from endpoints.comment_api import CommentAPI
-from endpoints.database_config import DatabaseConfig
-from endpoints.submission_api import SubmissionAPI
-from models.comment import Comment
-from models.submission import Submission
+from aita_api.endpoints.comment_api import CommentAPI
+from aita_api.endpoints.database_config import DatabaseConfig
+from aita_api.endpoints.submission_api import SubmissionAPI
+from aita_api.models.comment import Comment
+from aita_api.models.submission import Submission
 
 
 class Crawler:

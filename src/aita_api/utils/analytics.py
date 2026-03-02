@@ -10,13 +10,13 @@ from nltk.probability import FreqDist
 from nltk.tokenize import word_tokenize
 from nrclex import NRCLex
 
-from endpoints.breakdown_api import BreakdownAPI
-from endpoints.comment_api import CommentAPI
-from endpoints.database_config import DatabaseConfig
-from endpoints.submission_api import SubmissionAPI
-from endpoints.summary_api import SummaryAPI
-from models.breakdown import Breakdown
-from models.summary import Summary
+from aita_api.endpoints.breakdown_api import BreakdownAPI
+from aita_api.endpoints.comment_api import CommentAPI
+from aita_api.endpoints.database_config import DatabaseConfig
+from aita_api.endpoints.submission_api import SubmissionAPI
+from aita_api.endpoints.summary_api import SummaryAPI
+from aita_api.models.breakdown import Breakdown
+from aita_api.models.summary import Summary
 
 
 class AnalyticsProcessor:

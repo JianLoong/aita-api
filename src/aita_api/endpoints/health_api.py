@@ -2,12 +2,12 @@ import sqlalchemy
 from fastapi import APIRouter, status
 from sqlmodel import Session, select
 
-from models.comment import Comment
-from models.health import Health
-from models.message import Message
-from models.openai_analytics import OpenAIAnalysis
-from models.submission import Submission
-from models.summary import Summary
+from aita_api.models.comment import Comment
+from aita_api.models.health import Health
+from aita_api.models.message import Message
+from aita_api.models.openai_analytics import OpenAIAnalysis
+from aita_api.models.submission import Submission
+from aita_api.models.summary import Summary
 
 
 class HealthAPI:

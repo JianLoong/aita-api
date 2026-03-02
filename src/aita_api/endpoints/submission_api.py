@@ -10,8 +10,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import Engine
 from sqlmodel import Session, asc, desc, select
 
-from models.message import Message
-from models.submission import Submission
+from aita_api.models.message import Message
+from aita_api.models.submission import Submission
 
 logger = logging.getLogger(__name__)
 
@@ -162,9 +162,7 @@ class SubmissionAPI:
         response: Response,
         offset: int = Query(default=0, le=100),
         limit: int = Query(default=10, le=100),
-        sort_by: _SubmissionSortBy = Query(
-            alias="sortBy", default=_SubmissionSortBy.id
-        ),
+        sort_by: _SubmissionSortBy = Query(alias="sortBy", default=_SubmissionSortBy.id),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
     ) -> List[Submission]:
         """
@@ -201,9 +199,7 @@ class SubmissionAPI:
                     order = desc
 
             with Session(self.engine) as session:
-                submission_count = session.exec(
-                    select(sqlalchemy.func.count(Submission.id))
-                ).one()
+                submission_count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
 
                 submissions = session.exec(
                     select(Submission).offset(offset).limit(limit).order_by(order(sort))
@@ -233,9 +229,7 @@ class SubmissionAPI:
         self, submission_id: str, submission: Submission
     ) -> Submission:
         with Session(self.engine) as session:
-            statement = select(Submission).where(
-                Submission.submission_id == (submission_id)
-            )
+            statement = select(Submission).where(Submission.submission_id == (submission_id))
             result: Submission = session.exec(statement).one()
             result.score = submission.score
             session.add(result)
@@ -275,15 +269,17 @@ class SubmissionAPI:
 
         try:
             with Session(self.engine) as session:
-                statement = """
-                    SELECT id FROM submission_fts WHERE submission_fts MATCH '{query}' ORDER BY RANK LIMIT {limit}
-                """.format(
-                    query=cleaned_query, limit=limit
+                statement = sqlalchemy.sql.text(
+                    """
+                    SELECT id FROM submission_fts 
+                    WHERE submission_fts MATCH :query 
+                    ORDER BY RANK 
+                    LIMIT :limit
+                """
                 )
+                bound_statement = statement.bindparams(query=cleaned_query, limit=limit)
 
-                sqlText = sqlalchemy.sql.text(statement)
-
-                resultSet = session.exec(sqlText).all()
+                resultSet = session.exec(bound_statement).all()
 
                 results = []
 
@@ -313,9 +309,7 @@ class SubmissionAPI:
         submission_id: str = None,
         start_utc: float = Query(alias="startUTC", default=None),
         end_utc: float = Query(alias="endUTC", default=None),
-        sort_by: _SubmissionSortBy = Query(
-            alias="sortBy", default=_SubmissionSortBy.id
-        ),
+        sort_by: _SubmissionSortBy = Query(alias="sortBy", default=_SubmissionSortBy.id),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
         offset: int = 0,
         limit: int = Query(default=10, le=100),
@@ -436,8 +430,8 @@ class SubmissionAPI:
                     selectedMonth = "01"
 
             # Extract string values from enums
-            type_value = type.value if hasattr(type, 'value') else str(type)
-            year_value = year.value if hasattr(year, 'value') else str(year)
+            type_value = type.value if hasattr(type, "value") else str(type)
+            year_value = year.value if hasattr(year, "value") else str(year)
 
             # Validate type to prevent SQL injection since column names can't be parameterized
             valid_types = {"yta", "nta", "esh", "info", "nah"}
@@ -446,7 +440,8 @@ class SubmissionAPI:
 
             with Session(self.engine) as session:
                 if selectedMonth == "allMonths":
-                    statement = sqlalchemy.sql.text(f"""
+                    statement = sqlalchemy.sql.text(
+                        f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
                         MAX(b.{type_value}) AS max_count
@@ -455,10 +450,12 @@ class SubmissionAPI:
                         WHERE strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :year
                         GROUP BY sub_year
                         ORDER BY max_count DESC
-                    """)
+                    """
+                    )
                     bound_statement = statement.bindparams(year=year_value)
                 else:
-                    statement = sqlalchemy.sql.text(f"""
+                    statement = sqlalchemy.sql.text(
+                        f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_month,
                         strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
@@ -469,10 +466,13 @@ class SubmissionAPI:
                         AND strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :month
                         GROUP BY sub_month, sub_year
                         ORDER BY max_count DESC
-                    """)
+                    """
+                    )
                     bound_statement = statement.bindparams(year=year_value, month=selectedMonth)
 
-                logger.info(f"Executing top_submission query: year={year_value}, month={selectedMonth}, type={type_value}")
+                logger.info(
+                    f"Executing top_submission query: year={year_value}, month={selectedMonth}, type={type_value}"
+                )
                 resultSet = session.exec(bound_statement).all()
 
                 results = []
@@ -493,7 +493,10 @@ class SubmissionAPI:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error in top_submission (year={year}, month={month}, type={type}): {str(e)}", exc_info=True)
+            logger.error(
+                f"Error in top_submission (year={year}, month={month}, type={type}): {str(e)}",
+                exc_info=True,
+            )
             raise HTTPException(status_code=500, detail=f"Query error: {str(e)}")
 
     def upsert_submission(self, id: int, submission: Submission) -> Submission:
@@ -530,7 +533,9 @@ class SubmissionAPI:
             raise
         except Exception as e:
             logger.error(f"Error in random_submission: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to get random submission: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to get random submission: {str(e)}"
+            )
 
     def delete_submission(self, id: int):
         try:

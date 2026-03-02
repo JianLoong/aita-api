@@ -5,9 +5,9 @@ import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, asc, desc, select
-from models.message import Message
+from aita_api.models.message import Message
 
-from models.summary import Summary
+from aita_api.models.summary import Summary
 
 
 class SummaryAPI:

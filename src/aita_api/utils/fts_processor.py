@@ -2,7 +2,7 @@ import sqlalchemy
 from dotenv import find_dotenv, load_dotenv
 from sqlmodel import Session
 
-from endpoints.database_config import DatabaseConfig
+from aita_api.endpoints.database_config import DatabaseConfig
 
 
 class FTSProcessor:
