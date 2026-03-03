@@ -115,6 +115,16 @@ src/aita_api/
 └── main.py           # Application entry point
 ```
 
+## Troubleshooting
+
+Migrations
+
+```
+docker compose down -v
+docker compose up --build -d
+docker compose exec db psql -U postgres -d aita-db -f /migrations/add_fts.sql
+```
+
 ## License
 
 Apache 2.0 / MIT

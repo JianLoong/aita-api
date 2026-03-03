@@ -6,8 +6,6 @@ services:
       - 8000:8000
     env_file:
       - .env
-  #   volumes:
-  #     - ./database/:/app/database
     depends_on:
       db:
         condition: service_healthy
@@ -19,6 +17,7 @@ services:
       - db-password
     volumes:
       - ./database:/var/lib/postgresql
+      - ./migrations:/migrations
     environment:
       - POSTGRES_DB=aita-db
       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password

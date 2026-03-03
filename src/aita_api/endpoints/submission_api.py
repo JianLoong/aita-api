@@ -153,7 +153,9 @@ class SubmissionAPI:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error in read_submission for id {id}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Error in read_submission for id {id}: {str(e)}", exc_info=True
+            )
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     def read_submissions(
@@ -162,7 +164,9 @@ class SubmissionAPI:
         response: Response,
         offset: int = Query(default=0, le=100),
         limit: int = Query(default=10, le=100),
-        sort_by: _SubmissionSortBy = Query(alias="sortBy", default=_SubmissionSortBy.id),
+        sort_by: _SubmissionSortBy = Query(
+            alias="sortBy", default=_SubmissionSortBy.id
+        ),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
     ) -> List[Submission]:
         """
@@ -199,7 +203,9 @@ class SubmissionAPI:
                     order = desc
 
             with Session(self.engine) as session:
-                submission_count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
+                submission_count = session.exec(
+                    select(sqlalchemy.func.count(Submission.id))
+                ).one()
 
                 submissions = session.exec(
                     select(Submission).offset(offset).limit(limit).order_by(order(sort))
@@ -223,13 +229,17 @@ class SubmissionAPI:
                 return submission
         except Exception as e:
             logger.error(f"Error in create_submission: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to create submission: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Failed to create submission: {str(e)}"
+            )
 
     def update_submission_by_submission_id(
         self, submission_id: str, submission: Submission
     ) -> Submission:
         with Session(self.engine) as session:
-            statement = select(Submission).where(Submission.submission_id == (submission_id))
+            statement = select(Submission).where(
+                Submission.submission_id == (submission_id)
+            )
             result: Submission = session.exec(statement).one()
             result.score = submission.score
             session.add(result)
@@ -254,8 +264,12 @@ class SubmissionAPI:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error in update_submission for id {id}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to update submission: {str(e)}")
+            logger.error(
+                f"Error in update_submission for id {id}: {str(e)}", exc_info=True
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Failed to update submission: {str(e)}"
+            )
 
     def fuzzy_search(
         self,
@@ -265,41 +279,77 @@ class SubmissionAPI:
         if len(query) == 0:
             return []
 
-        cleaned_query = re.sub("\\W+", "", query)
-
         try:
             with Session(self.engine) as session:
-                statement = sqlalchemy.sql.text("""
-                    SELECT id FROM submission_fts 
-                    WHERE submission_fts MATCH :query 
-                    ORDER BY RANK 
+                # First try full-text search
+                statement = sqlalchemy.sql.text(
+                    """
+                    SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
+                           ts_rank(s.search_vector, plainto_tsquery('english', :query)) AS rank
+                    FROM submission s
+                    WHERE s.search_vector @@ plainto_tsquery('english', :query)
+                    ORDER BY rank DESC
                     LIMIT :limit
-                """)
-                bound_statement = statement.bindparams(query=cleaned_query, limit=limit)
+                """
+                )
 
-                resultSet = session.exec(bound_statement).all()
-
-                results = []
-
-                for record in resultSet:
-                    res = dict()
-                    res["id"] = record[0]
-                    results.append(res)
-
-                ids = [result["id"] for result in results]
-
-                if not ids:
-                    return []
-
-                matched_submissions = session.exec(
-                    select(Submission).where(Submission.id.in_(ids))
+                resultSet = session.exec(
+                    statement.bindparams(query=query, limit=limit)
                 ).all()
 
-                return matched_submissions
+                # If no results, fallback to ILIKE search
+                if not resultSet:
+                    logger.info(f"No FTS results for '{query}', falling back to ILIKE")
+                    search_pattern = f"%{query}%"
+                    statement = (
+                        select(Submission)
+                        .where(
+                            sqlalchemy.or_(
+                                Submission.title.ilike(search_pattern),
+                                Submission.submission_id.ilike(search_pattern),
+                            )
+                        )
+                        .limit(limit)
+                    )
+                    return session.exec(statement).all()
+
+                results = []
+                for record in resultSet:
+                    submission = Submission(
+                        id=record[0],
+                        submission_id=record[1],
+                        title=record[2],
+                        selftext=record[3],
+                        created_utc=record[4],
+                        permalink=record[5],
+                        score=record[6],
+                        search_vector=record[7],
+                    )
+                    results.append(submission)
+
+                return results
 
         except Exception as e:
-            logger.error(f"Error in fuzzy_search with query '{query}': {str(e)}", exc_info=True)
-            return []
+            logger.error(
+                f"Error in fuzzy_search with query '{query}': {str(e)}", exc_info=True
+            )
+            # Fallback to ILIKE on error
+            try:
+                with Session(self.engine) as session:
+                    search_pattern = f"%{query}%"
+                    statement = (
+                        select(Submission)
+                        .where(
+                            sqlalchemy.or_(
+                                Submission.title.ilike(search_pattern),
+                                Submission.submission_id.ilike(search_pattern),
+                            )
+                        )
+                        .limit(limit)
+                    )
+                    return session.exec(statement).all()
+            except:
+                return []
 
     def search_submission(
         self,
@@ -307,7 +357,9 @@ class SubmissionAPI:
         submission_id: str = None,
         start_utc: float = Query(alias="startUTC", default=None),
         end_utc: float = Query(alias="endUTC", default=None),
-        sort_by: _SubmissionSortBy = Query(alias="sortBy", default=_SubmissionSortBy.id),
+        sort_by: _SubmissionSortBy = Query(
+            alias="sortBy", default=_SubmissionSortBy.id
+        ),
         order_by: _OrderBy = Query(alias="orderBy", default=_OrderBy.desc),
         offset: int = 0,
         limit: int = Query(default=10, le=100),
@@ -438,31 +490,39 @@ class SubmissionAPI:
 
             with Session(self.engine) as session:
                 if selectedMonth == "allMonths":
-                    statement = sqlalchemy.sql.text(f"""
+                    # PostgreSQL date functions
+                    statement = sqlalchemy.sql.text(
+                        f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
-                        strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
+                        EXTRACT(YEAR FROM to_timestamp(s.created_utc)) AS sub_year,
                         MAX(b.{type_value}) AS max_count
                         FROM submission s
                         INNER JOIN breakdown b ON s.id = b.id
-                        WHERE strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :year
+                        WHERE EXTRACT(YEAR FROM to_timestamp(s.created_utc))::text = :year
                         GROUP BY sub_year
                         ORDER BY max_count DESC
-                    """)
+                    """
+                    )
                     bound_statement = statement.bindparams(year=year_value)
                 else:
-                    statement = sqlalchemy.sql.text(f"""
+                    # PostgreSQL date functions
+                    statement = sqlalchemy.sql.text(
+                        f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
-                        strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_month,
-                        strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
+                        EXTRACT(MONTH FROM to_timestamp(s.created_utc)) AS sub_month,
+                        EXTRACT(YEAR FROM to_timestamp(s.created_utc)) AS sub_year,
                         MAX(b.{type_value}) AS max_count
                         FROM submission s
                         INNER JOIN breakdown b ON s.id = b.id
-                        WHERE strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :year
-                        AND strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :month
+                        WHERE EXTRACT(YEAR FROM to_timestamp(s.created_utc))::text = :year
+                        AND LPAD(EXTRACT(MONTH FROM to_timestamp(s.created_utc))::text, 2, '0') = :month
                         GROUP BY sub_month, sub_year
                         ORDER BY max_count DESC
-                    """)
-                    bound_statement = statement.bindparams(year=year_value, month=selectedMonth)
+                    """
+                    )
+                    bound_statement = statement.bindparams(
+                        year=year_value, month=selectedMonth
+                    )
 
                 logger.info(
                     f"Executing top_submission query: year={year_value}, month={selectedMonth}, type={type_value}"
@@ -544,5 +604,9 @@ class SubmissionAPI:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error in delete_submission for id {id}: {str(e)}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to delete submission: {str(e)}")
+            logger.error(
+                f"Error in delete_submission for id {id}: {str(e)}", exc_info=True
+            )
+            raise HTTPException(
+                status_code=500, detail=f"Failed to delete submission: {str(e)}"
+            )

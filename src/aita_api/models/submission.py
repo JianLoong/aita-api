@@ -1,8 +1,16 @@
+from typing import Optional
+
+from sqlalchemy import Column, Index, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlmodel import Field, SQLModel
 
 
 class Submission(SQLModel, table=True):
     """Submission Schema"""
+
+    __table_args__ = (
+        Index('idx_submission_search', 'search_vector', postgresql_using='gin'),
+    )
 
     id: int = Field(
         default=None,
@@ -22,3 +30,10 @@ class Submission(SQLModel, table=True):
     created_utc: float
     permalink: str
     score: int = Field(title="The score")
+    search_vector: Optional[str] = Field(
+        default=None,
+        sa_column=Column(
+            TSVECTOR,
+            server_default=text("to_tsvector('english', '')"),
+        )
+    )
