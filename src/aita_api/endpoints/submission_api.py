@@ -269,14 +269,12 @@ class SubmissionAPI:
 
         try:
             with Session(self.engine) as session:
-                statement = sqlalchemy.sql.text(
-                    """
+                statement = sqlalchemy.sql.text("""
                     SELECT id FROM submission_fts 
                     WHERE submission_fts MATCH :query 
                     ORDER BY RANK 
                     LIMIT :limit
-                """
-                )
+                """)
                 bound_statement = statement.bindparams(query=cleaned_query, limit=limit)
 
                 resultSet = session.exec(bound_statement).all()
@@ -440,8 +438,7 @@ class SubmissionAPI:
 
             with Session(self.engine) as session:
                 if selectedMonth == "allMonths":
-                    statement = sqlalchemy.sql.text(
-                        f"""
+                    statement = sqlalchemy.sql.text(f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
                         MAX(b.{type_value}) AS max_count
@@ -450,12 +447,10 @@ class SubmissionAPI:
                         WHERE strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :year
                         GROUP BY sub_year
                         ORDER BY max_count DESC
-                    """
-                    )
+                    """)
                     bound_statement = statement.bindparams(year=year_value)
                 else:
-                    statement = sqlalchemy.sql.text(
-                        f"""
+                    statement = sqlalchemy.sql.text(f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_month,
                         strftime('%Y', DATETIME(ROUND(s.created_utc), 'unixepoch')) AS sub_year,
@@ -466,8 +461,7 @@ class SubmissionAPI:
                         AND strftime('%m', DATETIME(ROUND(s.created_utc), 'unixepoch')) = :month
                         GROUP BY sub_month, sub_year
                         ORDER BY max_count DESC
-                    """
-                    )
+                    """)
                     bound_statement = statement.bindparams(year=year_value, month=selectedMonth)
 
                 logger.info(

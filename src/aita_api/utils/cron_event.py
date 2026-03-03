@@ -1,7 +1,7 @@
 import asyncio
+
 from aita_api.utils.analytics import AnalyticsProcessor
 from aita_api.utils.crawler import Crawler
-from aita_api.utils.fts_processor import FTSProcessor
 
 
 async def update_submissions() -> None:

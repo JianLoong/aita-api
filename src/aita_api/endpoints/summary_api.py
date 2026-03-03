@@ -5,8 +5,8 @@ import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlmodel import Session, asc, desc, select
-from aita_api.models.message import Message
 
+from aita_api.models.message import Message
 from aita_api.models.summary import Summary
 
 
@@ -105,9 +105,7 @@ class SummaryAPI:
                 order = desc
 
         with Session(self.engine) as session:
-            summary_count = session.exec(
-                select(sqlalchemy.func.count(Summary.id))
-            ).one()
+            summary_count = session.exec(select(sqlalchemy.func.count(Summary.id))).one()
 
             submissions = session.exec(
                 select(Summary).offset(offset).limit(limit).order_by(order(Summary.id))

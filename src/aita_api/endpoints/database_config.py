@@ -10,10 +10,19 @@ class DatabaseConfig:
 
     def _setup_database(self):
         load_dotenv(find_dotenv())
-        sqlite_file_name = os.environ.get("DATABASE_NAME", "sqlite.db")
-        sqlite_url = f"sqlite:///database//{sqlite_file_name}"
 
-        self.engine = create_engine(sqlite_url, echo=False)
+        # PostgreSQL connection
+        db_host = os.environ.get("POSTGRES_HOST", "localhost")
+        db_port = os.environ.get("POSTGRES_PORT", "5432")
+        db_name = os.environ.get("POSTGRES_DB", "example")
+        db_user = os.environ.get("POSTGRES_USER", "postgres")
+        db_password = os.environ.get("POSTGRES_PASSWORD", "postgres")
+
+        postgres_url = (
+            f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        )
+
+        self.engine = create_engine(postgres_url, echo=False)
 
         SQLModel.metadata.create_all(self.engine)
 

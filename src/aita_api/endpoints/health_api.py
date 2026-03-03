@@ -43,21 +43,15 @@ class HealthAPI:
 
     def read_health(self) -> Health:
         with Session(self.engine) as session:
-            submission_count = session.exec(
-                select(sqlalchemy.func.count(Submission.id))
-            ).one()
+            submission_count = session.exec(select(sqlalchemy.func.count(Submission.id))).one()
 
-            comment_count = session.exec(
-                select(sqlalchemy.func.count(Comment.id))
-            ).one()
+            comment_count = session.exec(select(sqlalchemy.func.count(Comment.id))).one()
 
             openai_analysis_count = session.exec(
                 select(sqlalchemy.func.count(OpenAIAnalysis.id))
             ).one()
 
-            summary_count = session.exec(
-                select(sqlalchemy.func.count(Summary.id))
-            ).one()
+            summary_count = session.exec(select(sqlalchemy.func.count(Summary.id))).one()
 
         counts = {
             "submissions": submission_count,

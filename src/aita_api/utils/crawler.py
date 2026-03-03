@@ -17,7 +17,9 @@ class Crawler:
     _verbose = False
 
     def _configure_agent(self) -> None:
-        self.agent = "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
+        self.agent = (
+            "Mozilla/5.0 (platform; rv:geckoversion) Gecko/geckotrail Firefox/firefoxversion"
+        )
 
         load_dotenv(find_dotenv())
 
@@ -92,9 +94,7 @@ class Crawler:
                         self._verbose is True and print(
                             f"Updating submission for {results[0].id} {custom_submission.title}"
                         )
-                        submission_api.update_submission(
-                            results[0].id, custom_submission
-                        )
+                        submission_api.update_submission(results[0].id, custom_submission)
 
                     comments = await submission.comments()
                     await comments.replace_more(limit=0)
@@ -112,9 +112,7 @@ class Crawler:
                         custom_comment.score = comment.score
                         custom_comment.comment_id = comment.id
 
-                        results = comment_api.search_comments(
-                            comment_id=custom_comment.comment_id
-                        )
+                        results = comment_api.search_comments(comment_id=custom_comment.comment_id)
 
                         if len(results) == 0:
                             comment_api.create_comment(custom_comment)

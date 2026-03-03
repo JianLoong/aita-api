@@ -165,3 +165,6 @@ database
 # New Relic
 newrelic.ini
 *pem
+
+# App
+config/password.txt

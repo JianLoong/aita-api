@@ -12,6 +12,7 @@ class Submission(SQLModel, table=True):
     )
     submission_id: str = Field(
         max_length=10,
+        unique=True,
         title="The Id obtained from the Reddit Crawler, actual Id used on Reddit",
     )
     title: str = Field(

@@ -126,9 +126,7 @@ class AnalyticsProcessor:
         self._verbose is True and print(f"Total submissions is {str(len(submissions))}")
 
         for submission in submissions:
-            comments = self.comment_api.search_comments(
-                submission_id=submission.submission_id
-            )
+            comments = self.comment_api.search_comments(submission_id=submission.submission_id)
 
             submission_dict = submission.__dict__
 
@@ -180,7 +178,7 @@ class AnalyticsProcessor:
     def _remove_stop_words(self, word_tokens):
         stop_words = set(stopwords.words("english"))
 
-        filtered_sentence = [w for w in word_tokens if not w.lower() in stop_words]
+        filtered_sentence = [w for w in word_tokens if w.lower() not in stop_words]
         filtered_sentence = []
 
         for w in word_tokens:

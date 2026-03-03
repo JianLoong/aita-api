@@ -10,9 +10,13 @@ WORKDIR /app
 RUN python -m pip install --upgrade pip
 RUN python -m pip install --upgrade setuptools wheel
 
+
 COPY . .
 
 RUN python -m pip install .
+
+RUN python -m textblob.download_corpora
+RUN python -c "import nltk; nltk.download('stopwords')"
 
 EXPOSE 8000
 

@@ -1,7 +1,8 @@
 from typing import List
-from sqlalchemy import Engine
+
 from dotenv import dotenv_values
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from aita_api.models.comment import Comment
@@ -69,9 +70,7 @@ class CommentAPI:
     ) -> List[Comment]:
         with Session(self.engine) as session:
             if submission_id is not None:
-                statement = select(Comment).where(
-                    Comment.submission_id == (submission_id)
-                )
+                statement = select(Comment).where(Comment.submission_id == (submission_id))
                 results = session.exec(statement).all()
                 return results
 

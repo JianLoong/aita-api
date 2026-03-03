@@ -1,5 +1,6 @@
 from typing import Dict, Optional
-from sqlmodel import Field, Column, SQLModel, JSON
+
+from sqlmodel import JSON, Column, Field, SQLModel
 
 
 class Summary(SQLModel, table=True):

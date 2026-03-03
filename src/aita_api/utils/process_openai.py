@@ -43,16 +43,12 @@ class OpenAIProccessor:
             start_utc=yesterday_utc, end_utc=start_utc, limit=10000
         )
 
-        self._verbose is True and print(
-            f"Number of OpenAI Submissions {len(submissions)}"
-        )
+        self._verbose is True and print(f"Number of OpenAI Submissions {len(submissions)}")
 
         for sub in submissions:
             try:
                 self.open_ai_analysis.read_openai_inference(sub.id)
-                self._verbose is True and print(
-                    f"OpenAI analysis exist for {sub.title} skipping"
-                )
+                self._verbose is True and print(f"OpenAI analysis exist for {sub.title} skipping")
 
             except HTTPException:
                 # Doesnt exist so process
@@ -60,9 +56,7 @@ class OpenAIProccessor:
                 text = self.submission_api.read_submission(sub.id)
                 question = """
                 Based on the following context, is the author an asshole? {selftext}
-                """.format(
-                    selftext=text
-                )
+                """.format(selftext=text)
 
                 response = await self.client.chat.completions.create(
                     model="gpt-3.5-turbo",

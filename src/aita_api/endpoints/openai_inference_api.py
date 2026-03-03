@@ -1,11 +1,9 @@
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import Engine
 from sqlmodel import Session
-from aita_api.models.message import Message
 
+from aita_api.models.message import Message
 from aita_api.models.openai_analytics import OpenAIAnalysis
 
 
@@ -80,14 +78,10 @@ class OpenAIInferenceAPI:
         with Session(self.engine) as session:
             open_ai_inference = session.get(OpenAIAnalysis, id)
             if not open_ai_inference:
-                raise HTTPException(
-                    status_code=404, detail="OpenAI Inference not found"
-                )
+                raise HTTPException(status_code=404, detail="OpenAI Inference not found")
             return open_ai_inference
 
-    def update_open_ai_analysis(
-        self, id: int, open_ai_analysis: OpenAIAnalysis
-    ) -> OpenAIAnalysis:
+    def update_open_ai_analysis(self, id: int, open_ai_analysis: OpenAIAnalysis) -> OpenAIAnalysis:
         with Session(self.engine) as session:
             db_openai_inference = session.get(OpenAIAnalysis, id)
             if not db_openai_inference:
@@ -110,9 +104,7 @@ class OpenAIInferenceAPI:
 
             return {"detail": "Ok"}
 
-    def upsert_open_ai_analysis(
-        self, id: int, open_ai_analysis: OpenAIAnalysis
-    ) -> OpenAIAnalysis:
+    def upsert_open_ai_analysis(self, id: int, open_ai_analysis: OpenAIAnalysis) -> OpenAIAnalysis:
         """
         Upsert a open_ai_analysis
 
