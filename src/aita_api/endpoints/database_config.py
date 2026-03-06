@@ -4,6 +4,8 @@ from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import Engine
 from sqlmodel import SQLModel, create_engine
 
+from aita_api.utils.run_migrations import run_migrations
+
 
 class DatabaseConfig:
     _instance = None
@@ -25,6 +27,9 @@ class DatabaseConfig:
         self.engine = create_engine(postgres_url, echo=False)
 
         SQLModel.metadata.create_all(self.engine)
+
+        # Run migrations after tables are created
+        run_migrations(self.engine)
 
     def get_engine(self) -> Engine:
         return self.engine

@@ -104,16 +104,9 @@ def setup_startup_event() -> None:
         crawler = Crawler(verbose=True)
         await crawler.process()
 
-        ap = AnalyticsProcessor(verbose=False)
+        ap = AnalyticsProcessor(verbose=True)
         print("Processing submissions")
         await ap.process()
-
-        oap = OpenAIProccessor(verbose=False)
-        await oap.process()
-
-        fts = FTSProcessor()
-
-        fts.process()
 
     app.add_event_handler("startup", update_submissions)
 
@@ -131,7 +124,7 @@ def setup_process_time() -> None:
 setup_routes()
 setup_limiter()
 setup_cors()
-# setup_startup_event()
+setup_startup_event()
 setup_process_time()
 
 if __name__ == "__main__":

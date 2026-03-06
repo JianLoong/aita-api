@@ -495,12 +495,12 @@ class SubmissionAPI:
                         f"""
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         EXTRACT(YEAR FROM to_timestamp(s.created_utc)) AS sub_year,
-                        MAX(b.{type_value}) AS max_count
+                        b.{type_value} AS max_count
                         FROM submission s
                         INNER JOIN breakdown b ON s.id = b.id
                         WHERE EXTRACT(YEAR FROM to_timestamp(s.created_utc))::text = :year
-                        GROUP BY sub_year
-                        ORDER BY max_count DESC
+                        ORDER BY b.{type_value} DESC
+                        LIMIT 1
                     """
                     )
                     bound_statement = statement.bindparams(year=year_value)
@@ -511,13 +511,13 @@ class SubmissionAPI:
                         SELECT s.id, s.submission_id, s.title, s.selftext, s.created_utc, s.permalink, s.score,
                         EXTRACT(MONTH FROM to_timestamp(s.created_utc)) AS sub_month,
                         EXTRACT(YEAR FROM to_timestamp(s.created_utc)) AS sub_year,
-                        MAX(b.{type_value}) AS max_count
+                        b.{type_value} AS max_count
                         FROM submission s
                         INNER JOIN breakdown b ON s.id = b.id
                         WHERE EXTRACT(YEAR FROM to_timestamp(s.created_utc))::text = :year
                         AND LPAD(EXTRACT(MONTH FROM to_timestamp(s.created_utc))::text, 2, '0') = :month
-                        GROUP BY sub_month, sub_year
-                        ORDER BY max_count DESC
+                        ORDER BY b.{type_value} DESC
+                        LIMIT 1
                     """
                     )
                     bound_statement = statement.bindparams(

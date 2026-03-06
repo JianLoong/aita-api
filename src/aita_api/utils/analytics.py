@@ -69,7 +69,43 @@ class AnalyticsProcessor:
 
             result["id"] = submission["id"]
             result["afinn"] = afinn.score(replies)
-            result["emotion"] = NRCLex(replies).raw_emotion_scores
+
+            # NRCLex has a bug where it treats long text as filenames
+            # Workaround: use a very short stub text to initialize, then load tokens
+            try:
+                # Tokenize the text ourselves
+                text_for_emotion = replies.replace("\n", " ").replace("\r", " ")
+                tokens = word_tokenize(text_for_emotion.lower())
+
+                # Initialize with a short stub to avoid filename issues
+                emotion_obj = NRCLex("text")
+
+                # Try to load the actual tokens
+                if hasattr(emotion_obj, "load_token_list"):
+                    emotion_obj.load_token_list(tokens)
+                else:
+                    # Fallback: just use first 200 chars if load_token_list doesn't exist
+                    short_text = text_for_emotion[:200]
+                    emotion_obj = NRCLex(short_text)
+                    emotion_obj.load_raw_text(short_text)
+
+                # Get emotion scores
+                if hasattr(emotion_obj, "raw_emotion_scores"):
+                    result["emotion"] = emotion_obj.raw_emotion_scores
+                elif hasattr(emotion_obj, "affect_frequencies"):
+                    result["emotion"] = emotion_obj.affect_frequencies
+                elif hasattr(emotion_obj, "affect_dict"):
+                    result["emotion"] = emotion_obj.affect_dict
+                else:
+                    result["emotion"] = {}
+
+            except (OSError, Exception) as e:
+                if self._verbose:
+                    print(
+                        f"NRCLex failed for submission {submission['id']}: {type(e).__name__}: {str(e)[:200]}"
+                    )
+                result["emotion"] = {}
+
             frequencies = self._word_frequency(replies)
             result["word_freq"] = frequencies[0]
             result["no_of_replies"] = len(submission["replies"])
@@ -126,7 +162,9 @@ class AnalyticsProcessor:
         self._verbose is True and print(f"Total submissions is {str(len(submissions))}")
 
         for submission in submissions:
-            comments = self.comment_api.search_comments(submission_id=submission.submission_id)
+            comments = self.comment_api.search_comments(
+                submission_id=submission.submission_id
+            )
 
             submission_dict = submission.__dict__
 
